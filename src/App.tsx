@@ -346,7 +346,7 @@ export default function App() {
         </div>
 
         {/* Noto Sans Bengali Applied to the 100% Text */}
-        <h1 className="text-[2.5rem] md:text-6xl lg:text-[4rem] font-extrabold text-gray-900 leading-[1.2] md:leading-[1.15] mb-6 tracking-tight">
+        <h1 className="text-[2.5rem] md:text-6xl lg:text-[4rem] font-extrabold text-gray-900 dark:text-gray-900 leading-[1.2] md:leading-[1.15] mb-6 tracking-tight">
           ম্যানুয়াল হিসাবের দিন শেষ, <br className="hidden md:block" />
           ব্যবসা হোক <span className="text-[#0F6E56]" style={{ fontFamily: "'Noto Sans Bengali', sans-serif" }}>১০০% অটোমেটেড!</span>
         </h1>
