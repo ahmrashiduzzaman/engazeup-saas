@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, type Dispatch, type SetStateAction } from 'react';
 import { createClient } from '@supabase/supabase-js';
 import {
-  LayoutDashboard, Wallet, Package, CreditCard, ShieldAlert,
+  LayoutDashboard, Wallet, Package, CreditCard, ShieldAlert, AlertTriangle,
   TrendingUp, LogOut, Menu, X, Users, AlertCircle, CheckCircle2,
   Clock, ChevronRight, BarChart3, Settings, ExternalLink, Download, Loader2, MessageCircle, PlusCircle, Send, Copy, Link, Code, Key
 } from 'lucide-react';
@@ -724,6 +724,7 @@ export default function App() {
     const menuItems = [
       { id: 'dashboard', label: 'আজকের অবস্থা', icon: LayoutDashboard },
       { id: 'finance', label: 'টাকার হিসাব', icon: Wallet },
+      { id: 'inventory', label: 'স্টক ও ইনভেন্টরি', icon: Package },
       { id: 'new-parcel', label: 'নতুন পার্সেল', icon: PlusCircle }, // <-- 'create-order' পরিবর্তন করে 'new-parcel' করা হয়েছে
       { id: 'orders', label: 'অর্ডার লিস্ট', icon: Package },
       { id: 'customers', label: 'কাস্টমার ডিরেক্টরি', icon: Users },
@@ -1401,6 +1402,33 @@ export default function App() {
       </div>
     </DashboardLayout>
   );
+  const InventoryPage = () => (
+    <DashboardLayout title="স্টক ও ইনভেন্টরি" subtitle="আপনার প্রোডাক্টের বর্তমান স্টক">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <table className="w-full text-left whitespace-nowrap text-sm">
+          <thead className="bg-gray-50 border-b">
+            <tr>
+              <th className="p-4">SKU</th>
+              <th className="p-4 font-bengali">প্রোডাক্টের নাম</th>
+              <th className="p-4 text-center">স্টক আছে</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-b">
+              <td className="p-4 font-bold">SKU-101</td>
+              <td className="p-4 font-bengali">প্রিমিয়াম ওয়ালেট</td>
+              <td className="p-4 text-center font-bold text-green-600">145</td>
+            </tr>
+            <tr className="border-b">
+              <td className="p-4 font-bold">SKU-102</td>
+              <td className="p-4 font-bengali">অর্গানিক টি</td>
+              <td className="p-4 text-center font-bold text-red-500 flex items-center justify-center gap-1"><AlertTriangle size={14} /> 0</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </DashboardLayout>
+  );
   const BillingPage = () => (
     <DashboardLayout title="বিলিং ও সাবস্ক্রিপশন" subtitle="আপনার বর্তমান প্ল্যান পরিচালনা করুন">
       <div className="max-w-4xl">
@@ -1619,6 +1647,7 @@ export default function App() {
     case 'new-parcel': return <NewParcelForm />;
     case 'orders': return <OrderList />;
     case 'customers': return <CustomerDirectory />;
+    case 'inventory': return <InventoryPage />;
     case 'billing': return <BillingPage />;
     case 'integrations': return <IntegrationsPage />;
     case 'admin': return <AdminPanel />;
