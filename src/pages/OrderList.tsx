@@ -47,6 +47,23 @@ export default function OrderList() {
     }
   };
 
+  const getFraudRisk = (phone: string, allOrders: any[]) => {
+    if (!phone) return { icon: '🟡', label: 'অজানা', color: 'text-amber-600 bg-amber-50 border-amber-200' };
+    
+    const history = allOrders.filter(o => o.phone_number === phone);
+    const total = history.length;
+    const returned = history.filter(o => {
+      const s = String(o.status || '').toLowerCase();
+      return s.includes('return') || s.includes('cancel') || s.includes('fail') || s.includes('reject');
+    }).length;
+    
+    if (total <= 1) return { icon: '🟡', label: 'নতুন/সতর্ক', color: 'text-amber-600 bg-amber-50 border-amber-200' };
+    if (returned >= 2 || (total >= 3 && (returned / total) > 0.3)) return { icon: '🔴', label: 'ঝুঁকিপূর্ণ', color: 'text-red-700 bg-red-50 border-red-200' };
+    if (returned > 0) return { icon: '🟡', label: 'রিটার্ন ইতিহাস', color: 'text-amber-600 bg-amber-50 border-amber-200' };
+    
+    return { icon: '🟢', label: 'বিশ্বস্ত', color: 'text-green-700 bg-green-50 border-green-200' };
+  };
+
   return (
     <DashboardLayout title="অর্ডার লিস্ট (Orders)" subtitle="আপনার সকল কুরিয়ারের অর্ডারের বিস্তারিত তালিকা">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mt-6">
@@ -67,6 +84,7 @@ export default function OrderList() {
                   <th className="p-4 font-medium">Order ID</th>
                   <th className="p-4 font-medium font-bengali">Customer</th>
                   <th className="p-4 font-medium">Phone</th>
+                  <th className="p-4 font-medium text-center">Risk Score</th>
                   <th className="p-4 font-medium">Courier</th>
                   <th className="p-4 font-medium">Status</th>
                   <th className="p-4 font-medium text-right">COD Amount</th>
@@ -87,6 +105,16 @@ export default function OrderList() {
                     <td className="p-4 font-extrabold text-gray-900">{String(order.id).slice(0, 8).toUpperCase()}</td>
                     <td className="p-4 font-bold text-gray-700 font-bengali">{order.customer_name}</td>
                     <td className="p-4 text-gray-600 font-medium">{order.phone_number}</td>
+                    <td className="p-4 text-center">
+                      {(() => {
+                        const risk = getFraudRisk(order.phone_number, orders);
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-xs font-bold border rounded-full ${risk.color}`} title="AI Fraud Detection Score">
+                            <span>{risk.icon}</span> {risk.label}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="p-4 font-extrabold" style={{ color: courierColors[order.source] || '#333' }}>{order.source}</td>
                     <td className="p-4">
                       <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${statusBadgeTone(order.status)}`}>

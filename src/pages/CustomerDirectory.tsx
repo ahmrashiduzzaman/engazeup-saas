@@ -244,6 +244,11 @@ export default function CustomerDirectory() {
                 </div>
               </div>
 
+              {/* Compliance Warning */}
+              <div className="bg-orange-50 text-amber-700 text-sm p-2 rounded-md border border-orange-200 mt-4 font-medium">
+                ⚠️ সতর্কতা (বিটিআরসি নিয়ম): প্রোমোশনাল এসএমএস অবশ্যই বাংলায় লিখতে হবে (শুধু সংখ্যা বা লিংক ইংরেজিতে দেওয়া যাবে), নিয়ম অমান্য করলে একাউন্ট সাসপেন্ড হতে পারে!
+              </div>
+
               {/* Warning if multi-part SMS */}
               {smsPartCount > 1 && (
                 <div className="flex gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700 font-medium">
