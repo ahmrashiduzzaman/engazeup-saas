@@ -3,9 +3,16 @@ import DashboardLayout from '../components/DashboardLayout';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Send, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
+
+const MySwal = withReactContent(Swal);
 
 export default function NewParcelForm() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
@@ -34,7 +41,7 @@ export default function NewParcelForm() {
     }]);
 
     if (orderError) {
-      alert('Order Setup Error: ' + orderError.message);
+      toast.error('অর্ডার সেভ করতে সমস্যা হয়েছে: ' + orderError.message);
       setIsSubmitting(false);
       return;
     }
@@ -72,8 +79,20 @@ export default function NewParcelForm() {
     // await fetch(import.meta.env.VITE_SUPABASE_URL + '/functions/v1/trigger-api', ...)
     
     setIsSubmitting(false);
-    alert(`পার্সেল সফলভাবে এন্ট্রি হয়েছে!\n\n[SMS Triggered]\n"প্রিয় ${nameStr}, আপনার ${codAmount} টাকার অর্ডারটি কনফার্ম হয়েছে।"`);
-    setName(''); setPhone(''); setAddress(''); setCodAmount(''); setNote('');
+    
+    await MySwal.fire({
+      icon: 'success',
+      title: 'পার্সেল সফলভাবে এন্ট্রি হয়েছে!',
+      html: `<div class="bg-gray-50 p-4 rounded-xl text-left border border-gray-100 mt-2">
+               <span class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1 block">SMS Triggered</span>
+               <p class="text-sm font-medium text-gray-800">"প্রিয় ${nameStr}, আপনার ${codAmount} টাকার অর্ডারটি কনফার্ম হয়েছে।"</p>
+             </div>`,
+      confirmButtonColor: '#0F6E56',
+      confirmButtonText: 'অর্ডার লিস্টে যান',
+      customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-xl font-bold px-6 py-2.5' }
+    });
+
+    navigate('/orders');
   };
 
   return (

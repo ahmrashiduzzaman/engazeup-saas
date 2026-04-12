@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TrendingUp, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 import EngazeUpFooter from '../components/EngazeUpFooter';
 import { supabase } from '../lib/supabase';
 
@@ -23,9 +24,9 @@ export default function AuthPage({ isRegister }: { isRegister: boolean }) {
       });
 
       if (error) {
-        alert('অ্যাকাউন্ট খুলতে সমস্যা হয়েছে: ' + error.message);
+        toast.error('অ্যাকাউন্ট খুলতে সমস্যা হয়েছে: ' + error.message);
       } else if (data.user) {
-        alert('আলহামদুলিল্লাহ! আপনার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে।');
+        toast.success('আলহামদুলিল্লাহ! আপনার অ্যাকাউন্ট সফলভাবে তৈরি হয়েছে।');
         navigate('/onboarding');
       }
     } else {
@@ -35,7 +36,7 @@ export default function AuthPage({ isRegister }: { isRegister: boolean }) {
       });
 
       if (error) {
-        alert('ভুল ইমেইল বা পাসওয়ার্ড! দয়া করে আবার চেষ্টা করুন।');
+        toast.error('ভুল ইমেইল বা পাসওয়ার্ড! দয়া করে আবার চেষ্টা করুন।');
       } else if (data.user) {
         navigate('/dashboard');
       }

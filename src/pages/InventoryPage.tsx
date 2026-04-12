@@ -3,6 +3,11 @@ import DashboardLayout from '../components/DashboardLayout';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Package, Plus, Minus, Trash2, X } from 'lucide-react';
+import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
+
+const MySwal = withReactContent(Swal);
 
 export default function InventoryPage() {
   const { user } = useAuth();
@@ -45,9 +50,10 @@ export default function InventoryPage() {
     if (!error) {
       setShowModal(false);
       setNewProduct({ sku: '', name: '', price: '', stock: '' });
+      toast.success('প্রোডাক্ট সফলভাবে যোগ করা হয়েছে!');
       fetchInventory();
     } else {
-      alert("প্রোডাক্ট যোগ করতে সমস্যা হয়েছে: " + error.message);
+      toast.error("প্রোডাক্ট যোগ করতে সমস্যা হয়েছে: " + error.message);
     }
   };
 
@@ -66,13 +72,30 @@ export default function InventoryPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("আপনি কি নিশ্চিত যে এই প্রোডাক্টটি মুছে ফেলতে চান?")) {
+    const result = await MySwal.fire({
+      title: 'আপনি কি নিশ্চিত?',
+      text: "এই প্রোডাক্টটি মুছে ফেলা হবে।",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'হ্যাঁ, মুছুন',
+      cancelButtonText: 'না, বাতিল করুন',
+      customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-xl font-bold px-6', cancelButton: 'rounded-xl font-bold px-6' }
+    });
+
+    if (result.isConfirmed) {
       const { error } = await supabase
         .from('products')
         .update({ is_deleted: true })
         .eq('id', id);
         
-      if (!error) fetchInventory();
+      if (!error) {
+        toast.success('প্রোডাক্ট মুছে ফেলা হয়েছে।');
+        fetchInventory();
+      } else {
+        toast.error('সমস্যা হয়েছে: ' + error.message);
+      }
     }
   };
 

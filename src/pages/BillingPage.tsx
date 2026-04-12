@@ -8,6 +8,11 @@ import {
   Download, X, Wallet, Plus, Loader2, Zap,
   CreditCard, CheckCircle2, ArrowUpRight, Sparkles
 } from 'lucide-react';
+import toast from 'react-hot-toast';
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
+
+const MySwal = withReactContent(Swal);
 
 type Plan = 'starter' | 'growth' | 'pro';
 interface ShopData { sms_credits: number; plan: Plan; plan_expires_at: string | null; }
@@ -56,6 +61,7 @@ const SMS_PACKAGES = [
 export default function BillingPage() {
   const { user } = useAuth();
   const [shopData, setShopData] = useState<ShopData | null>(null);
+  const [payments, setPayments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Upgrade modal state
@@ -70,12 +76,13 @@ export default function BillingPage() {
   const fetchShopData = async () => {
     if (!user) return;
     setIsLoading(true);
-    const { data } = await supabase
-      .from('shops')
-      .select('sms_credits, plan, plan_expires_at')
-      .eq('id', user.id)
-      .single();
-    setShopData(data ?? { sms_credits: 0, plan: 'starter', plan_expires_at: null });
+    const [shopRes, payRes] = await Promise.all([
+      supabase.from('shops').select('sms_credits, plan, plan_expires_at').eq('id', user.id).single(),
+      supabase.from('manual_payments').select('*').eq('shop_id', user.id).order('created_at', { ascending: false })
+    ]);
+    
+    setShopData(shopRes.data ?? { sms_credits: 0, plan: 'starter', plan_expires_at: null });
+    setPayments(payRes.data || []);
     setIsLoading(false);
   };
 
@@ -97,6 +104,33 @@ export default function BillingPage() {
     setCheckoutDescription(`${plan.name} Plan — ১ মাস সাবস্ক্রিপশন`);
     setShowUpgradeModal(false);
     setCheckoutOpen(true);
+  };
+
+  const handleCancelPlan = async () => {
+    const result = await MySwal.fire({
+      title: 'আপনি কি নিশ্চিত?',
+      text: "আপনার প্ল্যান Starter-এ ডাউনগ্রেড করা হবে।",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6B7280',
+      confirmButtonText: 'হ্যাঁ, ক্যান্সেল করুন',
+      cancelButtonText: 'না, বাতিল করুন',
+      customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-xl font-bold px-6', cancelButton: 'rounded-xl font-bold px-6' }
+    });
+
+    if (result.isConfirmed) {
+      if (!user) return;
+      setIsLoading(true);
+      const { error } = await supabase.from('shops').update({ plan: 'starter' }).eq('id', user.id);
+      if (!error) {
+        toast.success('আপনার অ্যাক্টিভ প্ল্যান ক্যান্সেল করা হয়েছে।');
+        fetchShopData();
+      } else {
+        toast.error('সমস্যা হয়েছে: ' + error.message);
+        setIsLoading(false);
+      }
+    }
   };
 
   const formatExpiry = (s: string | null) =>
@@ -179,7 +213,9 @@ export default function BillingPage() {
                   </div>
                 </div>
                 <div className="flex gap-3 w-full md:w-auto">
-                  <button className="flex-1 md:flex-none border border-red-300 text-red-500 px-5 py-2.5 rounded-lg font-medium hover:bg-red-50 transition">ক্যান্সেল</button>
+                  {currentPlanDetails.id !== 'starter' && (
+                    <button onClick={handleCancelPlan} className="flex-1 md:flex-none border border-red-300 text-red-500 px-5 py-2.5 rounded-lg font-medium hover:bg-red-50 transition">ক্যান্সেল</button>
+                  )}
                   <button
                     onClick={() => setShowUpgradeModal(true)}
                     className="flex-1 md:flex-none bg-[#0F6E56] text-white px-5 py-2.5 rounded-lg font-bold hover:bg-[#1D9E75] transition shadow-sm flex items-center gap-2"
@@ -209,14 +245,24 @@ export default function BillingPage() {
               </tr>
             </thead>
             <tbody>
-              {['20 Mar 2026', '20 Feb 2026', '20 Jan 2026'].map((date, i) => (
-                <tr key={i} className="border-b border-gray-50 hover:bg-gray-50 transition">
-                  <td className="p-4 text-gray-700">{date}</td>
-                  <td className="p-4 font-medium">৳{currentPlanDetails.price.toLocaleString()}</td>
-                  <td className="p-4 text-gray-600">{currentPlanDetails.name}</td>
-                  <td className="p-4"><span className="text-green-600 font-bold">Paid</span></td>
+              {payments.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-8 text-center text-gray-500">কোনো ইনভয়েস পাওয়া যায়নি</td>
+                </tr>
+              ) : payments.map((payment) => (
+                <tr key={payment.id} className="border-b border-gray-50 hover:bg-gray-50 transition">
+                  <td className="p-4 text-gray-700">{new Date(payment.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</td>
+                  <td className="p-4 font-medium">৳{payment.amount.toLocaleString()}</td>
+                  <td className="p-4 text-gray-600">
+                    {payment.purpose === 'plan_upgrade' ? 'Plan Upgrade' : 'SMS Recharge'}
+                  </td>
+                  <td className="p-4">
+                    <span className={`font-bold ${payment.status === 'verified' ? 'text-green-600' : payment.status === 'rejected' ? 'text-red-500' : 'text-amber-500'}`}>
+                      {payment.status === 'verified' ? 'Paid' : payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                    </span>
+                  </td>
                   <td className="p-4 text-right">
-                    <button className="text-[#0F6E56] hover:underline flex items-center gap-1 justify-end ml-auto font-medium">
+                    <button className="text-[#0F6E56] hover:underline flex items-center gap-1 justify-end ml-auto font-medium disabled:opacity-50" disabled>
                       <Download className="w-4 h-4" /> PDF
                     </button>
                   </td>

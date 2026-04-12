@@ -32,6 +32,7 @@ export default function DashboardLayout({
   const [editName, setEditName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
+
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -94,7 +95,7 @@ export default function DashboardLayout({
   };
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA] flex flex-col md:flex-row font-bengali">
+    <div className="min-h-screen bg-[#F8F9FA] dark:bg-gray-900 flex flex-col md:flex-row font-bengali dashboard-root">
       {/* Mobile Navbar */}
       <div className="md:hidden bg-white border-b border-gray-100 p-4 flex justify-between items-center sticky top-0 z-50 shadow-sm">
         <div className="flex items-center gap-2 text-[#0F6E56] font-bold text-xl cursor-pointer" onClick={() => navigate('/dashboard')}>
@@ -106,7 +107,7 @@ export default function DashboardLayout({
       </div>
 
       {/* Sidebar */}
-      <aside className={`w-64 bg-white border-r border-gray-100 flex-col md:flex fixed md:relative z-40 h-screen transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      <aside className={`w-64 bg-white border-r border-gray-100 flex flex-col fixed inset-y-0 left-0 md:relative z-50 md:z-40 h-screen transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="p-6 hidden md:flex items-center gap-2 text-[#0F6E56] font-bold text-2xl cursor-pointer hover:scale-105 transition-transform" onClick={() => navigate('/dashboard')}>
           <TrendingUp className="h-8 w-8" /><span>EngazeUp</span>
         </div>
@@ -163,14 +164,14 @@ export default function DashboardLayout({
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#F8F9FA]">
-        <header className="bg-white border-b border-gray-100 px-6 py-8 md:px-10 md:py-10 shadow-sm z-10 flex-shrink-0">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#F8F9FA] dark:bg-gray-900">
+        <header className="bg-white dark:bg-gray-800 border-b border-gray-100 dark:border-gray-700 px-6 py-8 md:px-10 md:py-10 shadow-sm z-10 flex-shrink-0">
           <div className="max-w-6xl mx-auto">
-            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-2 tracking-tight flex items-center gap-3">
+            <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 dark:text-white mb-2 tracking-tight flex items-center gap-3">
               {title}
               {title?.includes('আজকের অবস্থা') && <span className="w-3 h-3 rounded-full bg-red-500 animate-pulse mt-1" />}
             </h1>
-            {subtitle && <p className="text-gray-500 font-medium text-sm md:text-base">{subtitle}</p>}
+            {subtitle && <p className="text-gray-500 dark:text-gray-400 font-medium text-sm md:text-base">{subtitle}</p>}
           </div>
         </header>
         <div className="flex-1 overflow-y-auto p-6 md:p-10 relative">
@@ -179,7 +180,7 @@ export default function DashboardLayout({
       </main>
 
       {isMobileMenuOpen && (
-        <div className="fixed inset-0 bg-black/50 z-30 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+        <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
       )}
 
       {/* ── Edit Profile Modal ── */}

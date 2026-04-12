@@ -5,9 +5,15 @@ import { useAuth } from '../contexts/AuthContext';
 import { engToBdNum, checkSteadfastStatus, steadfastStatusSummary } from '../lib/utils';
 import { Loader2, CheckCircle2, Link as LinkIcon, Users, MessageCircle, ShieldAlert, Package } from 'lucide-react';
 import { ResponsiveContainer, AreaChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Area } from 'recharts';
+import Swal from 'sweetalert2';
+import withReactContent from 'sweetalert2-react-content';
+import { useNavigate } from 'react-router-dom';
+
+const MySwal = withReactContent(Swal);
 
 export default function DashboardHome() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchInput, setSearchInput] = useState('');
   const [liveStats, setLiveStats] = useState({ todayOrders: 0, pendingCod: 0, inTransit: 0, flagged: 0 });
   const [isLoadingTracking, setIsLoadingTracking] = useState(false);
@@ -115,15 +121,50 @@ export default function DashboardHome() {
   const testSteadfastApi = async () => {
     if (!searchInput.trim()) return;
     try {
-      // In production, you would call your supabase edge function here instead of steadfast directly
       const result = await checkSteadfastStatus(searchInput, setIsLoadingTracking, setParcelData);
       const currentStatus = String(result?.delivery_status || result?.status || '');
       if (currentStatus.toLowerCase() === 'delivered') {
-        setTimeout(() => alert(`[Automated Upsell SMS Triggered]\n\n"আপনার পার্সেলটি সফলভাবে ডেলিভারি হয়েছে। পরবর্তী অর্ডারে ছাড় পেতে..."`), 1000);
+        setTimeout(() => {
+          MySwal.fire({
+            title: 'Automated Upsell SMS Triggered',
+            text: 'প্রিয় কাস্টমার, আপনার পার্সেলটি সফলভাবে ডেলিভারি হয়েছে। পরবর্তী অর্ডারে ছাড় পেতে...',
+            icon: 'success',
+            confirmButtonColor: '#0F6E56',
+            confirmButtonText: 'ঠিক আছে'
+          });
+        }, 1000);
       }
     } catch (e) {
-      alert(`Tracking error\n\n${e instanceof Error ? e.message : String(e)}`);
+      MySwal.fire({
+        title: 'Tracking Error',
+        text: e instanceof Error ? e.message : String(e),
+        icon: 'error',
+        confirmButtonColor: '#d33',
+        confirmButtonText: 'বন্ধ করুন'
+      });
     }
+  };
+
+  const handleTaskClick = (type: 'api' | 'csv' | 'sms') => {
+    const config = {
+      api: { icon: '🔗', title: 'API কানেক্ট করুন', text: 'অর্ডারগুলো অটোমেটিক স্টিডফাস্টে পাঠাতে API সেটআপ করুন।', path: '/integrations', btn: 'সেটিংস-এ যান' },
+      csv: { icon: '👥', title: 'কাস্টমার লিস্ট', text: 'পার্সেল যোগ করলেই কাস্টমার লিস্ট তৈরি হয়ে যাবে।', path: '/new-parcel', btn: 'নতুন পার্সেল করুন' },
+      sms: { icon: '💬', title: 'SMS রিচার্জ', text: 'বাল্ক SMS পাঠানোর জন্য ব্যালেন্স রিচার্জ করুন।', path: '/billing', btn: 'রিচার্জ পেজে যান' }
+    }[type];
+
+    MySwal.fire({
+      iconHtml: `<div style="font-size: 2.5rem; border: none; line-height: 1.2;">${config.icon}</div>`,
+      title: `<h3 class="text-2xl font-bold text-gray-800">${config.title}</h3>`,
+      html: `<p class="text-gray-600 font-medium">${config.text}</p>`,
+      showCancelButton: true,
+      confirmButtonText: config.btn,
+      cancelButtonText: 'পরে করব',
+      confirmButtonColor: '#0F6E56',
+      cancelButtonColor: '#6B7280',
+      customClass: { popup: 'rounded-2xl', confirmButton: 'rounded-xl font-bold px-6', cancelButton: 'rounded-xl font-bold px-6' }
+    }).then((result) => {
+      if (result.isConfirmed) navigate(config.path);
+    });
   };
 
   const liveSummary = parcelData ? steadfastStatusSummary(parcelData) : null;
@@ -222,9 +263,9 @@ export default function DashboardHome() {
                 </div>
                 {tasks.api
                   ? <p className="text-sm text-green-600 font-bold mt-auto">সম্পন্ন হয়েছে!</p>
-                  : <a href="/integrations" className="mt-auto bg-gray-50 hover:bg-[#0F6E56] text-gray-500 hover:text-white font-extrabold py-2 px-3 rounded-lg text-sm transition-colors border border-gray-200 hover:border-[#0F6E56] flex items-center justify-center gap-1.5 w-full">
+                  : <button onClick={() => handleTaskClick('api')} className="mt-auto bg-gray-50 hover:bg-[#0F6E56] text-gray-500 hover:text-white font-extrabold py-2 px-3 rounded-lg text-sm transition-colors border border-gray-200 hover:border-[#0F6E56] flex items-center justify-center gap-1.5 w-full">
                       <span>API কানেক্ট করুন</span><span className="bg-gray-200 text-gray-600 hover:bg-white/20 px-1.5 py-0.5 rounded text-xs">+৫ দিন</span>
-                    </a>
+                    </button>
                 }
               </div>
             )}
@@ -239,9 +280,9 @@ export default function DashboardHome() {
                 </div>
                 {tasks.csv
                   ? <p className="text-sm text-green-600 font-bold mt-auto">সম্পন্ন হয়েছে!</p>
-                  : <a href="/new-parcel" className="mt-auto bg-gray-50 hover:bg-[#0F6E56] text-gray-500 hover:text-white font-extrabold py-2 px-3 rounded-lg text-sm transition-colors border border-gray-200 hover:border-[#0F6E56] flex items-center justify-center gap-1.5 w-full">
+                  : <button onClick={() => handleTaskClick('csv')} className="mt-auto bg-gray-50 hover:bg-[#0F6E56] text-gray-500 hover:text-white font-extrabold py-2 px-3 rounded-lg text-sm transition-colors border border-gray-200 hover:border-[#0F6E56] flex items-center justify-center gap-1.5 w-full">
                       <span>পার্সেল যোগ করুন</span><span className="bg-gray-200 text-gray-600 hover:bg-white/20 px-1.5 py-0.5 rounded text-xs">+৫ দিন</span>
-                    </a>
+                    </button>
                 }
               </div>
             )}
@@ -256,9 +297,9 @@ export default function DashboardHome() {
                 </div>
                 {tasks.sms
                   ? <p className="text-sm text-green-600 font-bold mt-auto">সম্পন্ন হয়েছে!</p>
-                  : <a href="/billing" className="mt-auto bg-gray-50 hover:bg-[#0F6E56] text-gray-500 hover:text-white font-extrabold py-2 px-3 rounded-lg text-sm transition-colors border border-gray-200 hover:border-[#0F6E56] flex items-center justify-center gap-1.5 w-full">
+                  : <button onClick={() => handleTaskClick('sms')} className="mt-auto bg-gray-50 hover:bg-[#0F6E56] text-gray-500 hover:text-white font-extrabold py-2 px-3 rounded-lg text-sm transition-colors border border-gray-200 hover:border-[#0F6E56] flex items-center justify-center gap-1.5 w-full">
                       <span>SMS রিচার্জ করুন</span><span className="bg-gray-200 text-gray-600 hover:bg-white/20 px-1.5 py-0.5 rounded text-xs">+৩ দিন</span>
-                    </a>
+                    </button>
                 }
               </div>
             )}
