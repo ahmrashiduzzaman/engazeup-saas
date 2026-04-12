@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, Menu, Wallet, MessageCircle, ShieldAlert, BarChart3, CheckCircle2 } from 'lucide-react';
+import { TrendingUp, Wallet, MessageCircle, ShieldAlert, BarChart3, CheckCircle2 } from 'lucide-react';
 import EngazeUpFooter from '../components/EngazeUpFooter';
 
 export default function LandingPage() {
   const navigate = useNavigate();
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8F9FA]">
@@ -23,9 +22,6 @@ export default function LandingPage() {
             ফ্রি ট্রায়াল শুরু করুন
           </button>
         </div>
-        <button className="md:hidden text-gray-600" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-          <Menu className="h-6 w-6" />
-        </button>
       </nav>
 
       {/* Hero Section */}
