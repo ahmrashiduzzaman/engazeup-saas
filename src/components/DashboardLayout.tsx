@@ -107,7 +107,7 @@ export default function DashboardLayout({
       </div>
 
       {/* Sidebar */}
-      <aside className={`w-64 bg-white border-r border-gray-100 flex flex-col fixed inset-y-0 left-0 md:relative z-50 md:z-40 h-screen transition-transform duration-300 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+      <aside className={`w-64 bg-white border-r border-gray-100 flex flex-col fixed inset-y-0 md:relative z-50 md:z-40 h-screen transition-all duration-300 ${isMobileMenuOpen ? 'left-0' : '-left-64 md:left-0'}`}>
         <div className="p-6 hidden md:flex items-center gap-2 text-[#0F6E56] font-bold text-2xl cursor-pointer hover:scale-105 transition-transform" onClick={() => navigate('/dashboard')}>
           <TrendingUp className="h-8 w-8" /><span>EngazeUp</span>
         </div>
