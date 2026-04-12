@@ -23,8 +23,14 @@ export default function DashboardHome() {
   const [celebration, setCelebration] = useState({ show: false, message: '', days: 0 });
   const [trendData, setTrendData] = useState<any[]>([]);
   const [highRiskOrders, setHighRiskOrders] = useState<any[]>([]);
+  const [shopCreatedAt, setShopCreatedAt] = useState<string | null>(null);
 
-  const currentTotalDays = 14 + (tasks.api ? 5 : 0) + (tasks.csv ? 5 : 0) + (tasks.sms ? 3 : 0);
+  const daysPassed = shopCreatedAt ? Math.floor((new Date().getTime() - new Date(shopCreatedAt).getTime()) / (1000 * 60 * 60 * 24)) : 0;
+  const grantedDays = 14 + (tasks.api ? 5 : 0) + (tasks.csv ? 5 : 0) + (tasks.sms ? 3 : 0);
+  const remainingDays = grantedDays - daysPassed;
+  const isTrialExpired = remainingDays <= 0;
+  
+  const currentTotalDays = isTrialExpired ? 0 : remainingDays;
   const progressPercent = 25 + (tasks.api ? 25 : 0) + (tasks.csv ? 25 : 0) + (tasks.sms ? 25 : 0);
 
   const closeCelebration = () => setCelebration({ show: false, message: '', days: 0 });
@@ -42,13 +48,14 @@ export default function DashboardHome() {
     const verifyTasks = async () => {
       setIsLoadingTasks(true);
       const [shopRes, customerRes, smsRes] = await Promise.all([
-        // Task 1: API connected — check for saved Steadfast API key
-        supabase.from('shops').select('steadfast_api_key, sms_credits').eq('id', user.id).single(),
-        // Task 2: Customer list — check if any customers exist
+        supabase.from('shops').select('created_at, steadfast_api_key, sms_credits').eq('id', user.id).single(),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('shop_id', user.id).eq('is_deleted', false),
-        // Task 3: SMS recharge history — check manual_payments for any sms_recharge
         supabase.from('manual_payments').select('id', { count: 'exact', head: true }).eq('shop_id', user.id).eq('purpose', 'sms_recharge'),
       ]);
+
+      if (shopRes.data?.created_at) {
+        setShopCreatedAt(shopRes.data.created_at);
+      }
 
       const apiConnected = !!(shopRes.data?.steadfast_api_key);
       const hasCustomers = (customerRes.count ?? 0) > 0;
@@ -57,7 +64,6 @@ export default function DashboardHome() {
       const prev = { api: false, csv: false, sms: false };
       const next = { api: apiConnected, csv: hasCustomers, sms: hasSmsHistory };
 
-      // Show celebration for any task newly completed since page load
       if (next.api && !prev.api) setCelebration({ show: true, message: 'API কানেকশন', days: 5 });
       else if (next.csv && !prev.csv) setCelebration({ show: true, message: 'কাস্টমার লিস্ট', days: 5 });
       else if (next.sms && !prev.sms) setCelebration({ show: true, message: 'Bulk SMS ক্রেডিট', days: 3 });
@@ -223,16 +229,33 @@ export default function DashboardHome() {
         <div className="bg-white rounded-[22px] p-6 md:p-8 relative z-10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-xl md:text-2xl font-bold text-gray-900 flex flex-wrap items-center gap-3">
-                <span className="text-2xl">🎁</span> আপনার ট্রায়াল পিরিয়ড বাড়ান!
-                <span className="text-white bg-[#0F6E56] border border-[#0F6E56]/20 px-4 py-1.5 rounded-full text-sm font-extrabold tracking-wide shadow-md">
-                  {engToBdNum(currentTotalDays)} দিন বাকি
-                </span>
-              </h2>
-              {progressPercent < 100 ? (
-                <p className="text-gray-600 mt-2 font-medium">আপনার অ্যাকাউন্টটি সম্পূর্ণ রেডি করুন এবং আনলক করুন আরও <span className="font-extrabold text-[#0F6E56]">{engToBdNum(13 - (currentTotalDays - 14))}</span> দিন একদম ফ্রি!</p>
+              {isTrialExpired ? (
+                <>
+                  <h2 className="text-xl md:text-2xl font-bold text-gray-900 flex flex-wrap items-center gap-3">
+                    <span className="text-2xl">⚠️</span> আপনার ট্রায়াল শেষ!
+                    <span className="text-white bg-red-500 border border-red-600 px-4 py-1.5 rounded-full text-sm font-extrabold tracking-wide shadow-md">
+                      ট্রায়াল এক্সপায়ার্ড
+                    </span>
+                  </h2>
+                  <p className="text-red-600 mt-2 font-medium">EngazeUp এর পরিষেবা চালিয়ে যেতে দয়া করে আপনার প্যাকেজ আপগ্রেড করুন।</p>
+                  <button onClick={() => navigate('/billing')} className="mt-4 bg-red-50 text-red-600 border border-red-200 hover:bg-red-500 hover:text-white font-bold py-2.5 px-6 rounded-xl transition-colors shadow-sm">
+                    প্যাকেজ আপগ্রেড করুন
+                  </button>
+                </>
               ) : (
-                <p className="text-[#0F6E56] mt-2 font-extrabold">অভিনন্দন! আপনি পুরো ২৭ দিনের ফ্রি ট্রায়াল আনলক করেছেন।</p>
+                <>
+                  <h2 className="text-xl md:text-2xl font-bold text-gray-900 flex flex-wrap items-center gap-3">
+                    <span className="text-2xl">🎁</span> আপনার ট্রায়াল পিরিয়ড বাড়ান!
+                    <span className="text-white bg-[#0F6E56] border border-[#0F6E56]/20 px-4 py-1.5 rounded-full text-sm font-extrabold tracking-wide shadow-md">
+                      {engToBdNum(currentTotalDays)} দিন বাকি
+                    </span>
+                  </h2>
+                  {progressPercent < 100 ? (
+                    <p className="text-gray-600 mt-2 font-medium">অ্যাকাউন্ট রেডি করে আনলক করুন আরও <span className="font-extrabold text-[#0F6E56]">{engToBdNum(13 - (grantedDays - 14))}</span> দিন একদম ফ্রি!</p>
+                  ) : (
+                    <p className="text-[#0F6E56] mt-2 font-extrabold">অভিনন্দন! আপনি পুরো ২৭ দিনের ফ্রি ট্রায়াল আনলক করেছেন।</p>
+                  )}
+                </>
               )}
             </div>
             <div className="hidden md:block text-right bg-gray-50 px-5 py-4 rounded-xl border border-gray-100 min-w-[200px]">
@@ -244,9 +267,10 @@ export default function DashboardHome() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* Task 0 — Account created (always done) */}
-            <div className="border-2 border-green-100 bg-green-50/60 p-5 rounded-xl flex flex-col gap-3">
+          {!isTrialExpired && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Task 0 — Account created (always done) */}
+              <div className="border-2 border-green-100 bg-green-50/60 p-5 rounded-xl flex flex-col gap-3">
               <div className="flex items-center gap-2 text-green-700 font-bold">
                 <CheckCircle2 className="w-6 h-6" /> অ্যাকাউন্ট তৈরি
               </div>
@@ -304,6 +328,7 @@ export default function DashboardHome() {
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
 
