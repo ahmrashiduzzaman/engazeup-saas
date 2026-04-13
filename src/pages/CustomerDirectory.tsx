@@ -72,26 +72,32 @@ export default function CustomerDirectory() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('লগইন করা নেই (User not authenticated)');
 
-      // The native supabase SDK perfectly handles Kong API Gateway preflights,
-      // anon_key injection, and securely parses the user's JWT Session.
-      const { data, error } = await supabase.functions.invoke('bulk-sms', {
-        body: {
-          phoneNumbers,
-          message: smsMessage.trim(),
-        }
+      const response = await fetch('https://otvzexarrpuaewjjdxna.supabase.co/functions/v1/bulk-sms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+          'apikey': 'sb_publishable_7jBWsP_UplGHBSmiA3rn5w_a_7U8WzI'
+        },
+        body: JSON.stringify({
+          phoneNumbers: phoneNumbers,
+          message: smsMessage.trim()
+        })
       });
 
-      if (error) {
-        console.error("Function Invoke Error:", error);
-        throw new Error(error.message || 'SMS পাঠাতে সমস্যা হয়েছে');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`API Gateway Error: ${response.status} - ${errorText}`);
       }
 
-      if (data?.error) {
-        throw new Error(data.error);
+      const responseData = await response.json();
+
+      if (responseData?.error) {
+        throw new Error(responseData.error);
       }
 
       toast.success(
-        `✅ ${data.sent_to} জন কাস্টমারকে SMS পাঠানো হয়েছে!\n${data.credits_remaining} ক্রেডিট বাকি আছে।`
+        `✅ ${responseData.sent_to} জন কাস্টমারকে SMS পাঠানো হয়েছে!\n${responseData.credits_remaining} ক্রেডিট বাকি আছে।`
       );
       setShowSmsModal(false);
       setSmsMessage('');
@@ -103,8 +109,6 @@ export default function CustomerDirectory() {
       setIsSending(false);
     }
   };
-
-
 
   const MAX_SMS_LENGTH = 160;
   const charCount = smsMessage.length;
