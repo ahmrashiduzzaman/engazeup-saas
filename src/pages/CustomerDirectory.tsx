@@ -73,31 +73,23 @@ export default function CustomerDirectory() {
     setIsSending(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('লগইন করা নেই');
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const response = await fetch(`${supabaseUrl}/functions/v1/bulk-sms`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('bulk-sms', {
+        body: {
           phoneNumbers,
           message: smsMessage.trim(),
-        }),
+        }
       });
 
-      const result = await response.json();
+      if (error) {
+        throw new Error(error.message || 'SMS পাঠাতে সমস্যা হয়েছে');
+      }
 
-      if (!response.ok || result.error) {
-        throw new Error(result.error || 'SMS পাঠাতে সমস্যা হয়েছে');
+      if (data?.error) {
+        throw new Error(data.error);
       }
 
       toast.success(
-        `✅ ${result.sent_to} জন কাস্টমারকে SMS পাঠানো হয়েছে!\n${result.credits_remaining} ক্রেডিট বাকি আছে।`
+        `✅ ${data.sent_to} জন কাস্টমারকে SMS পাঠানো হয়েছে!\n${data.credits_remaining} ক্রেডিট বাকি আছে।`
       );
       setShowSmsModal(false);
       setSmsMessage('');
