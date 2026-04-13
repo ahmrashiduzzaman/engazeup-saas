@@ -52,10 +52,6 @@ export default function CustomerDirectory() {
   };
 
   const handleSendSms = async () => {
-    if (!smsMessage.trim()) {
-      toast.error('মেসেজ লিখুন আগে!');
-      return;
-    }
     if (customers.length === 0) {
       toast.error('কোনো কাস্টমার নেই!');
       return;
@@ -73,16 +69,31 @@ export default function CustomerDirectory() {
     setIsSending(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('bulk-sms', {
-        body: {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('লগইন করা নেই (User not authenticated)');
+
+      // 🚨 CRITICAL FIX: Strip any accidental trailing slashes from the URL
+      // This explicitly prevents Kong API Gateway "double slash" routing failures.
+      const baseUrl = import.meta.env.VITE_SUPABASE_URL.replace(/\/$/, '');
+
+      // Manual Fetch correctly aligned for Edge Function CORS preflights
+      const response = await fetch(`${baseUrl}/functions/v1/bulk-sms`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`, // Automatically parsed by Deno logic
+        },
+        body: JSON.stringify({
           phoneNumbers,
           message: smsMessage.trim(),
-        }
+        }),
       });
 
-      if (error) {
-        throw new Error(error.message || 'SMS পাঠাতে সমস্যা হয়েছে');
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
       }
+
+      const data = await response.json();
 
       if (data?.error) {
         throw new Error(data.error);
@@ -93,12 +104,15 @@ export default function CustomerDirectory() {
       );
       setShowSmsModal(false);
       setSmsMessage('');
+
     } catch (err: any) {
+      console.error('Edge Function Frontend Dispatch Error:', err);
       toast.error(err.message || 'অজানা সমস্যা হয়েছে।');
     } finally {
       setIsSending(false);
     }
   };
+
 
   const MAX_SMS_LENGTH = 160;
   const charCount = smsMessage.length;
