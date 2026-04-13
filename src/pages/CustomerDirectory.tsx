@@ -70,36 +70,37 @@ export default function CustomerDirectory() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session || !session.access_token) {
-        toast.error('লগইন সেশন পাওয়া যায়নি! দয়া করে পেজটি রিফ্রেশ দিয়ে আবার লগইন করুন।');
-        setIsSending(false);
-        return;
+
+      if (!session?.access_token) {
+        throw new Error('লগইন সেশন পাওয়া যায়নি! দয়া করে আবার লগইন করুন।');
       }
 
-      const { data: responseData, error } = await supabase.functions.invoke('bulk-sms', {
-        body: {
+      // Use fetch for absolute control over headers
+      const response = await fetch('https://otvzexarrpuaewjjdxna.supabase.co/functions/v1/bulk-sms', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90dnpleGFycnB1YWV3ampkeG5hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzOTgyMzcsImV4cCI6MjA5MDk3NDIzN30.2SMR4Gt8SShEqzf2T448iPc8U_mQcv0yB51JXSN-ov8'
+        },
+        body: JSON.stringify({
           phoneNumbers: phoneNumbers,
           message: smsMessage.trim()
-        }
+        })
       });
 
-      if (error) {
-        console.error('API Gateway/Invoke Error:', error);
-        throw new Error(`API Error: ${error.message}`);
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        throw new Error(responseData?.error || `API Error: ${response.status}`);
       }
 
-      if (responseData?.error) {
-        throw new Error(responseData.error);
-      }
-
-      toast.success(
-        `✅ ${responseData.sent_to} জন কাস্টমারকে SMS পাঠানো হয়েছে!\n${responseData.credits_remaining} ক্রেডিট বাকি আছে।`
-      );
+      toast.success(`✅ ${responseData.sent_to} জন কাস্টমারকে SMS পাঠানো হয়েছে!`);
       setShowSmsModal(false);
       setSmsMessage('');
 
     } catch (err: any) {
-      console.error('Edge Function Frontend Dispatch Error:', err);
+      console.error('Final SMS Dispatch Error:', err);
       toast.error(err.message || 'অজানা সমস্যা হয়েছে।');
     } finally {
       setIsSending(false);
