@@ -72,28 +72,19 @@ export default function CustomerDirectory() {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error('লগইন করা নেই (User not authenticated)');
 
-      // 🚨 CRITICAL FIX: Strip any accidental trailing slashes from the URL
-      // This explicitly prevents Kong API Gateway "double slash" routing failures.
-      const baseUrl = import.meta.env.VITE_SUPABASE_URL.replace(/\/$/, '');
-
-      // Manual Fetch correctly aligned for Edge Function CORS preflights
-      const response = await fetch(`${baseUrl}/functions/v1/bulk-sms`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`, // Automatically parsed by Deno logic
-        },
-        body: JSON.stringify({
+      // The native supabase SDK perfectly handles Kong API Gateway preflights,
+      // anon_key injection, and securely parses the user's JWT Session.
+      const { data, error } = await supabase.functions.invoke('bulk-sms', {
+        body: {
           phoneNumbers,
           message: smsMessage.trim(),
-        }),
+        }
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+      if (error) {
+        console.error("Function Invoke Error:", error);
+        throw new Error(error.message || 'SMS পাঠাতে সমস্যা হয়েছে');
       }
-
-      const data = await response.json();
 
       if (data?.error) {
         throw new Error(data.error);
@@ -112,6 +103,7 @@ export default function CustomerDirectory() {
       setIsSending(false);
     }
   };
+
 
 
   const MAX_SMS_LENGTH = 160;
