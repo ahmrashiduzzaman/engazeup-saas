@@ -97,12 +97,16 @@ serve(async (req) => {
 
     const response = await fetch('https://esms.mimsms.com/smsapi', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: { 
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'application/json'
+      },
       body: formData.toString()
     });
 
     const resultText = await response.text();
-    console.log("Mim SMS Response:", resultText);
+    console.log("Mim SMS Provider Raw Response:", resultText);
 
     return new Response(
       JSON.stringify({
