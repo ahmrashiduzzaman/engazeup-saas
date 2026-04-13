@@ -70,9 +70,12 @@ export default function CustomerDirectory() {
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
 
-      if (!session?.access_token) {
-        throw new Error('লগইন সেশন পাওয়া যায়নি! দয়া করে আবার লগইন করুন।');
+      if (!token) {
+        toast.error('সেশন পাওয়া যায়নি! দয়া করে লগআউট করে আবার লগইন করুন।');
+        setIsSending(false);
+        return;
       }
 
       // Use fetch for absolute control over headers
@@ -80,11 +83,11 @@ export default function CustomerDirectory() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`,
-          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90dnpleGFycnB1YWV3ampkeG5hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzOTgyMzcsImV4cCI6MjA5MDk3NDIzN30.2SMR4Gt8SShEqzf2T448iPc8U_mQcv0yB51JXSN-ov8'
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90dnpleGFycnB1YWV3ampkeG5hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzOTgyMzcsImV4cCI6MjA5MDk3NDIzN30.2SMR4Gt8SShEqzf2T448iPc8U_mQcv0yB51JXSN-ov8',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          phoneNumbers: phoneNumbers,
+          phoneNumbers,
           message: smsMessage.trim()
         })
       });
