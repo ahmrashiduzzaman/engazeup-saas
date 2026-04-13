@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { TrendingUp, Wallet, MessageCircle, ShieldAlert, BarChart3, CheckCircle2 } from 'lucide-react';
+import { TrendingUp, Wallet, MessageCircle, ShieldAlert, BarChart3, CheckCircle2, Menu, X } from 'lucide-react';
 import EngazeUpFooter from '../components/EngazeUpFooter';
 
 export default function LandingPage() {
   const navigate = useNavigate();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#F8F9FA]">
@@ -22,6 +23,28 @@ export default function LandingPage() {
             ফ্রি ট্রায়াল শুরু করুন
           </button>
         </div>
+
+        {/* Mobile Hamburger Button */}
+        <button 
+          className="md:hidden text-gray-700 p-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition" 
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+        >
+          {isMobileMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
+        </button>
+
+        {/* Mobile Dropdown Menu */}
+        {isMobileMenuOpen && (
+          <div className="absolute top-[100%] left-0 w-full bg-white shadow-xl shadow-black/5 flex flex-col items-center py-6 gap-2 md:hidden z-40 border-b border-gray-100 animate-in slide-in-from-top-2 duration-300">
+            <a href="#features" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-800 font-bold hover:text-[#0F6E56] transition w-full text-center py-3">ফিচারসমূহ</a>
+            <a href="#pricing" onClick={() => setIsMobileMenuOpen(false)} className="text-gray-800 font-bold hover:text-[#0F6E56] transition w-full text-center py-3">প্যাকেজ</a>
+            <button onClick={() => { setIsMobileMenuOpen(false); navigate('/login'); }} className="text-[#0F6E56] font-bold text-lg w-full py-3 hover:bg-gray-50 transition">লগইন</button>
+            <div className="w-full px-6 mt-2">
+              <button onClick={() => { setIsMobileMenuOpen(false); navigate('/register'); }} className="bg-[#0F6E56] w-full text-white px-8 py-4 rounded-xl font-extrabold shadow-lg shadow-[#0F6E56]/30 transform transition active:scale-95">
+                ফ্রি ট্রায়াল শুরু করুন
+              </button>
+            </div>
+          </div>
+        )}
       </nav>
 
       {/* Hero Section */}

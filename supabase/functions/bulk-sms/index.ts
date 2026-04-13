@@ -71,8 +71,9 @@ serve(async (req) => {
     if (deductError) throw new Error("Failed to deduct SMS credits: " + deductError.message)
 
     // --- Step 3: Dispatch SMS via provider ---
-    const apiKey = Deno.env.get('SMS_API_KEY')
-    const senderId = Deno.env.get('SMS_SENDER_ID')
+    const apiKey = Deno.env.get('MIM_SMS_API_KEY');
+    // Using a typical default Sender ID for Mim SMS non-masking routes if none is set
+    const senderId = Deno.env.get('SMS_SENDER_ID') || '8809612443880'; 
 
     if (!apiKey) {
       // Rollback the deduction if API is not configured
@@ -83,19 +84,25 @@ serve(async (req) => {
       throw new Error("SMS provider not configured. Credits have been restored.")
     }
 
-    // TODO: Replace with your actual SMS provider API call
-    // Example (uncomment and adapt for your provider):
-    // const response = await fetch('https://api.bulksmsbd.net/api/smsapi', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify({
-    //     api_key: apiKey,
-    //     senderid: senderId,
-    //     number: phoneNumbers.join(','),
-    //     message: message,
-    //   })
-    // })
-    // const result = await response.json()
+    const isUnicode = /[^\u0000-\u00ff]/.test(message);
+    const smsType = isUnicode ? 'unicode' : 'text';
+    const contactsStr = phoneNumbers.join('+');
+
+    const formData = new URLSearchParams();
+    formData.append('api_key', apiKey);
+    formData.append('type', smsType);
+    formData.append('contacts', contactsStr);
+    formData.append('senderid', senderId);
+    formData.append('msg', message);
+
+    const response = await fetch('https://esms.mimsms.com/smsapi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: formData.toString()
+    });
+
+    const resultText = await response.text();
+    console.log("Mim SMS Response:", resultText);
 
     return new Response(
       JSON.stringify({
