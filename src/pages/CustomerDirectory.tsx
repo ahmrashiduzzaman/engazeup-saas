@@ -69,15 +69,21 @@ export default function CustomerDirectory() {
     setIsSending(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('লগইন করা নেই (User not authenticated)');
+      const { data } = await supabase.auth.getSession();
+      const session = data?.session;
+
+      if (!session || !session.access_token) {
+        toast.error('লগইন সেশন পাওয়া যায়নি! দয়া করে পেজটি রিফ্রেশ দিয়ে আবার লগইন করুন।');
+        setIsSending(false);
+        return;
+      }
 
       const response = await fetch('https://otvzexarrpuaewjjdxna.supabase.co/functions/v1/bulk-sms', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-          'apikey': 'sb_publishable_7jBWsP_UplGHBSmiA3rn5w_a_7U8WzI'
+          'Authorization': `Bearer ${session.access_token}`,
+          'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90dnpleGFycnB1YWV3ampkeG5hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzOTgyMzcsImV4cCI6MjA5MDk3NDIzN30.2SMR4Gt8SShEqzf2T448iPc8U_mQcv0yB51JXSN-ov8'
         },
         body: JSON.stringify({
           phoneNumbers: phoneNumbers,
