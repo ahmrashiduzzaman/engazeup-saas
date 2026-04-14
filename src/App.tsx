@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from 'react-hot-toast';
 
 // Pages
+import { supabase } from './lib/supabase';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
 import OnboardingPage from './pages/OnboardingPage';
@@ -32,7 +33,21 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 function AppRoutes() {
+  const navigate = useNavigate();
+
   useEffect(() => {
+    // 🚀 Global Supabase Auth Listener for OAuth Redirects
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        // Only redirect if they are on the login/register/landing pages
+        // This prevents ripping them out of deep links (like /orders) when they refresh the browser
+        const path = window.location.pathname;
+        if (path === '/' || path === '/login' || path === '/register') {
+          navigate('/dashboard', { replace: true });
+        }
+      }
+    });
+
     const style = document.createElement('style');
     style.innerHTML = `
       @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@700;800;900&display=swap');
@@ -48,8 +63,9 @@ function AppRoutes() {
     document.head.appendChild(style);
     return () => {
       if (document.head.contains(style)) document.head.removeChild(style);
+      subscription.unsubscribe(); // Cleanup Auth Listener
     };
-  }, []);
+  }, [navigate]);
 
   return (
     <Routes>
