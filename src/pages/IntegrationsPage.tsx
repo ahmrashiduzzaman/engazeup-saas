@@ -3,7 +3,14 @@ import DashboardLayout from '../components/DashboardLayout';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import toast from 'react-hot-toast';
-import { Copy, Code, Link as LinkIcon, MessageCircle, Key, Loader2, CheckCircle2, Eye, EyeOff } from 'lucide-react';
+import { Copy, Code, Link as LinkIcon, MessageCircle, Key, Loader2, CheckCircle2, Eye, EyeOff, Facebook } from 'lucide-react';
+
+interface FacebookPage {
+  id: string;
+  name: string;
+  access_token: string;
+  category: string;
+}
 
 export default function IntegrationsPage() {
   const { user } = useAuth();
@@ -18,6 +25,12 @@ export default function IntegrationsPage() {
   const [isSavingKeys, setIsSavingKeys] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
 
+  // Facebook Integration States
+  const [fbPages, setFbPages] = useState<FacebookPage[]>([]);
+  const [isFetchingPages, setIsFetchingPages] = useState(false);
+  const [connectedFbPage, setConnectedFbPage] = useState<{id: string, name: string} | null>(null);
+  const [selectedPageId, setSelectedPageId] = useState('');
+
   const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co'}/rest/v1/orders`;
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
@@ -27,13 +40,17 @@ export default function IntegrationsPage() {
       setIsLoadingKeys(true);
       const { data } = await supabase
         .from('shops')
-        .select('steadfast_api_key, steadfast_api_secret')
+        .select('steadfast_api_key, steadfast_api_secret, fb_page_id, fb_page_name')
         .eq('id', user.id)
         .single();
       if (data) {
         setApiKey(data.steadfast_api_key ?? '');
         setApiSecret(data.steadfast_api_secret ?? '');
         setIsSaved(!!(data.steadfast_api_key));
+        
+        if (data.fb_page_id && data.fb_page_name) {
+          setConnectedFbPage({ id: data.fb_page_id, name: data.fb_page_name });
+        }
       }
       setIsLoadingKeys(false);
     };
@@ -64,6 +81,66 @@ export default function IntegrationsPage() {
     navigator.clipboard.writeText(text);
     if (type === 'url') { setCopiedUrl(true); setTimeout(() => setCopiedUrl(false), 2000); }
     else { setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); }
+  };
+
+  const fetchFacebookPages = async () => {
+    setIsFetchingPages(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const providerToken = session?.provider_token;
+      
+      if (!providerToken) {
+        toast.error('ফেসবুক টোকেন পাওয়া যায়নি। দয়া করে লগআউট করে আবার "Connect with Facebook" দিয়ে লগইন করুন।');
+        setIsFetchingPages(false);
+        return;
+      }
+      
+      const response = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${providerToken}`);
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error.message || 'Graph API Error');
+      }
+      
+      setFbPages(data.data || []);
+      if (data.data?.length === 0) {
+        toast.error('আপনার অ্যাকাউন্টে কোনো ফেসবুক পেজ পাওয়া যায়নি।');
+      } else {
+        toast.success(`✅ ${data.data.length} টি পেজ পাওয়া গেছে!`);
+      }
+    } catch (err: any) {
+      console.error('FB Fetch Error:', err);
+      toast.error('পেজ আনতে সমস্যা হয়েছে: ' + err.message);
+    } finally {
+      setIsFetchingPages(false);
+    }
+  };
+
+  const handleConnectFbPage = async () => {
+    if (!user || !selectedPageId) return;
+    
+    const pageToConnect = fbPages.find(p => p.id === selectedPageId);
+    if (!pageToConnect) return;
+    
+    setIsSavingKeys(true);
+    const { error } = await supabase
+      .from('shops')
+      .update({ 
+        fb_page_id: pageToConnect.id,
+        fb_page_name: pageToConnect.name,
+        fb_page_access_token: pageToConnect.access_token
+      })
+      .eq('id', user.id);
+      
+    if (error) {
+      toast.error('কোথাও সমস্যা হয়েছে: ' + error.message);
+    } else {
+      toast.success(`✅ ${pageToConnect.name} পেজটি সাকসেসফুলি কানেক্ট হয়েছে!`);
+      setConnectedFbPage({ id: pageToConnect.id, name: pageToConnect.name });
+      setFbPages([]); // clear the list once connected to show success compact state
+      setSelectedPageId('');
+    }
+    setIsSavingKeys(false);
   };
 
   return (
@@ -127,6 +204,69 @@ export default function IntegrationsPage() {
               </button>
             </form>
           )}
+        </div>
+
+        {/* ── Facebook AI Auto-Reply Integration ── */}
+        <div className="bg-white rounded-2xl border border-[#1877F2]/20 shadow-sm p-6 overflow-hidden relative">
+          {/* Decorative Background blob */}
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#1877F2]/5 rounded-bl-[100px] z-0 pointer-events-none"></div>
+
+          <div className="relative z-10 flex items-center justify-between mb-5">
+            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+              <Facebook className="w-6 h-6 text-[#1877F2]" />
+              Facebook Page AI অটোমেশন
+            </h3>
+            {connectedFbPage && (
+              <span className="flex items-center gap-1.5 bg-[#1877F2]/10 text-[#1877F2] text-xs font-extrabold px-3 py-1.5 rounded-full border border-[#1877F2]/20">
+                <CheckCircle2 className="w-3.5 h-3.5" /> কানেক্টেড ({connectedFbPage.name})
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-gray-500 font-medium mb-5 relative z-10">
+            আপনার ফেসবুক অ্যাকাউন্ট থেকে পেজ সিলেক্ট করুন। AI অটোমেটিক্যালি আপনার পেজের ইনবক্সে আসা কাস্টমারদের রিপ্লাই দেওয়া শুরু করবে!
+          </p>
+
+          <div className="relative z-10 space-y-4">
+            {fbPages.length === 0 ? (
+              <button
+                onClick={fetchFacebookPages}
+                disabled={isFetchingPages}
+                className="flex items-center gap-2 bg-[#1877F2] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#1664D9] transition disabled:opacity-60 shadow-sm w-full sm:w-auto justify-center"
+              >
+                {isFetchingPages ? <><Loader2 className="w-4 h-4 animate-spin" /> পেজ খুঁজছি...</> : 'আপনার পেজগুলো খুঁজুন'}
+              </button>
+            ) : (
+              <div className="space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <label className="block text-sm font-bold text-gray-700">কোন পেজে AI কানেক্ট করবেন?</label>
+                <select
+                  value={selectedPageId}
+                  onChange={(e) => setSelectedPageId(e.target.value)}
+                  className="w-full p-3 border-2 border-gray-200 rounded-xl focus:border-[#1877F2] focus:ring-2 focus:ring-[#1877F2]/20 outline-none transition font-en text-sm bg-white"
+                >
+                  <option value="" disabled>একটি পেজ সিলেক্ট করুন</option>
+                  {fbPages.map(page => (
+                    <option key={page.id} value={page.id}>{page.name} ({page.category})</option>
+                  ))}
+                </select>
+                
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={handleConnectFbPage}
+                    disabled={!selectedPageId || isSavingKeys}
+                    className="flex-1 flex justify-center items-center gap-2 bg-[#1877F2] text-white px-6 py-3 rounded-xl font-bold hover:bg-[#1664D9] transition disabled:opacity-60 shadow-sm"
+                  >
+                    {isSavingKeys ? <><Loader2 className="w-4 h-4 animate-spin" /> কানেক্ট হচ্ছে...</> : 'Confirm & Connect AI'}
+                  </button>
+                  <button
+                    onClick={() => setFbPages([])}
+                    className="px-6 py-3 rounded-xl font-bold border-2 border-gray-200 text-gray-600 hover:bg-gray-100 transition"
+                  >
+                    বাতিল
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ── Supabase API Credentials ── */}
