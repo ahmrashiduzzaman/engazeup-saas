@@ -92,13 +92,25 @@ export default function CustomerDirectory() {
         })
       });
 
-      const responseData = await response.json();
+      const responseText = await response.text();
+      let responseData: any = {};
 
-      if (!response.ok) {
-        throw new Error(responseData?.error || `API Error: ${response.status}`);
+      if (responseText && responseText.trim() !== '') {
+        try {
+          responseData = JSON.parse(responseText);
+        } catch (e) {
+          console.error("Non-JSON API Gateway Response:", responseText);
+          if (!response.ok) {
+            throw new Error(`API Error ${response.status}: ${responseText}`);
+          }
+        }
       }
 
-      toast.success(`✅ ${responseData.sent_to} জন কাস্টমারকে SMS পাঠানো হয়েছে!`);
+      if (!response.ok) {
+        throw new Error(responseData?.error || `API Error ${response.status}: ${responseText}`);
+      }
+
+      toast.success(`✅ ${responseData?.sent_to || phoneNumbers.length} জন কাস্টমারকে SMS পাঠানো হয়েছে!`);
       setShowSmsModal(false);
       setSmsMessage('');
 
