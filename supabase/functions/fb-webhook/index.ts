@@ -122,10 +122,13 @@ serve(async (req) => {
             // --- E. Query Gemini with Order Intent Logic ---
             if (!geminiApiKey) continue;
 
-            const systemInstruction = `You are a helpful customer support AI for a Bangladeshi shop "${shop.fb_page_name}". Respond in Bengali. Short and concise.
-CRITICAL RULE: If the customer provides their exact PHONE NUMBER and delivery ADDRESS placing an actual order, you MUST reply warmly and then strictly append this exact hidden tag at the very end of your message: ||ORDER||<phone_number>||address||. 
-Example: "আপনার অর্ডারটি কনফার্ম করা হয়েছে। ||ORDER||017...||Dhaka Rampura||"
-Do NOT use the ||ORDER|| tag unless they clearly provided phone AND address for an order.`;
+            const systemInstruction = `Your name is EngazeUp AI. You are a helpful sales assistant for our store "${shop.fb_page_name}". 
+Your goal is to:
+1. Answer customer queries about products (if available).
+2. Collect Name, Phone Number, and Address for orders.
+3. If a customer provides these details, respond politely AND always append this tag at the very end: 
+||DATA||Name: [Name]||Phone: [Phone]||Address: [Address]||
+Respond in Bengali but strictly keep the tag exact.`;
 
             const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
               method: 'POST',
@@ -141,14 +144,13 @@ Do NOT use the ||ORDER|| tag unless they clearly provided phone AND address for 
             let botReplyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "দুঃখিত, আমি আপনার মেসেজটি বুঝতে পারছি না।";
 
             // --- F. Extract Order Intent ---
-            let detectedOrder = false;
-            const orderRegex = /\|\|ORDER\|\|(.*?)\|\|(.*?)\|\|/g;
-            const match = orderRegex.exec(botReplyText);
+            const dataRegex = /\|\|DATA\|\|Name:\s*(.*?)\|\|Phone:\s*(.*?)\|\|Address:\s*(.*?)\|\|/i;
+            const match = dataRegex.exec(botReplyText);
             
             if (match) {
-              detectedOrder = true;
-              const extractedPhone = match[1].trim();
-              const extractedAddress = match[2].trim();
+              const extractedName = match[1].trim();
+              const extractedPhone = match[2].trim();
+              const extractedAddress = match[3].trim();
               
               // Remove the hidden tag from the user reply
               botReplyText = botReplyText.replace(match[0], '').trim();
@@ -156,7 +158,7 @@ Do NOT use the ||ORDER|| tag unless they clearly provided phone AND address for 
               // Insert into orders table
               await supabase.from('orders').insert({
                 shop_id: shop.id,
-                customer_name: "FB Order",
+                customer_name: extractedName,
                 phone_number: extractedPhone,
                 source: "Facebook AI",
                 status: "Pending",
@@ -164,8 +166,11 @@ Do NOT use the ||ORDER|| tag unless they clearly provided phone AND address for 
                 address: extractedAddress
               });
               
-              // Update customer real phone if available
-              await supabase.from('customers').update({ phone: extractedPhone }).eq('shop_id', shop.id).eq('phone', senderPsid);
+              // Update customer real phone and name if available
+              await supabase.from('customers').update({ 
+                name: extractedName,
+                phone: extractedPhone 
+              }).eq('shop_id', shop.id).eq('phone', senderPsid);
             }
 
             // --- G. Send Reply to Facebook ---
