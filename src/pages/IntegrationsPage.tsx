@@ -152,24 +152,39 @@ export default function IntegrationsPage() {
     if (!pageToConnect) return;
     
     setIsSavingKeys(true);
-    const { error } = await supabase
-      .from('shops')
-      .update({ 
-        fb_page_id: pageToConnect.id,
-        fb_page_name: pageToConnect.name,
-        fb_page_access_token: pageToConnect.access_token
-      })
-      .eq('id', user.id);
+    
+    try {
+      // 1. Subscribe App to the Page's Webhooks
+      const subResponse = await fetch(`https://graph.facebook.com/v19.0/${pageToConnect.id}/subscribed_apps?subscribed_fields=messages,messaging_postbacks&access_token=${pageToConnect.access_token}`, {
+        method: 'POST',
+      });
+      const subData = await subResponse.json();
       
-    if (error) {
-      toast.error('কোথাও সমস্যা হয়েছে: ' + error.message);
-    } else {
-      toast.success(`✅ ${pageToConnect.name} পেজটি সাকসেসফুলি কানেক্ট হয়েছে!`);
+      if (subData.error) {
+        throw new Error(subData.error.message || 'Failed to subscribe webhook');
+      }
+
+      // 2. Save token to Database
+      const { error } = await supabase
+        .from('shops')
+        .update({ 
+          fb_page_id: pageToConnect.id,
+          fb_page_name: pageToConnect.name,
+          fb_page_access_token: pageToConnect.access_token
+        })
+        .eq('id', user.id);
+        
+      if (error) throw error;
+
+      toast.success(`✅ ${pageToConnect.name} কানেক্ট এবং Webhook সাবস্ক্রাইব হয়েছে!`);
       setConnectedFbPage({ id: pageToConnect.id, name: pageToConnect.name });
       setFbPages([]); // clear the list once connected to show success compact state
       setSelectedPageId('');
+    } catch (err: any) {
+      toast.error('কোথাও সমস্যা হয়েছে: ' + err.message);
+    } finally {
+      setIsSavingKeys(false);
     }
-    setIsSavingKeys(false);
   };
 
   return (
