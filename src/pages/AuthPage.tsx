@@ -17,7 +17,7 @@ export default function AuthPage({ isRegister }: { isRegister: boolean }) {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'facebook',
         options: {
-          scopes: 'pages_show_list,pages_read_engagement,pages_messaging',
+          scopes: 'pages_show_list,pages_read_engagement,pages_manage_metadata,pages_messaging',
           redirectTo: `${window.location.origin}/dashboard`
         }
       });

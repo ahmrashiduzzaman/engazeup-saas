@@ -95,7 +95,7 @@ export default function IntegrationsPage() {
     await supabase.auth.signInWithOAuth({
       provider: 'facebook',
       options: {
-        scopes: 'pages_show_list,pages_read_engagement,pages_messaging',
+        scopes: 'pages_show_list,pages_read_engagement,pages_manage_metadata,pages_messaging',
         redirectTo: window.location.href,
         queryParams: { auth_type: 'reauthenticate' }
       }
