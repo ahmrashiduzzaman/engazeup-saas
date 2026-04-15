@@ -89,6 +89,19 @@ export default function IntegrationsPage() {
     else { setCopiedKey(true); setTimeout(() => setCopiedKey(false), 2000); }
   };
 
+  const triggerFacebookLogin = async () => {
+    toast.loading('ফেসবুক রি-অথেনটিকেট করা হচ্ছে...', { duration: 3000 });
+    // Force Facebook to issue a new token
+    await supabase.auth.signInWithOAuth({
+      provider: 'facebook',
+      options: {
+        scopes: 'pages_show_list,pages_read_engagement,pages_messaging',
+        redirectTo: window.location.href,
+        queryParams: { auth_type: 'reauthenticate' }
+      }
+    });
+  };
+
   const fetchFacebookPages = async () => {
     setIsFetchingPages(true);
     try {
@@ -96,8 +109,8 @@ export default function IntegrationsPage() {
       const providerToken = session?.provider_token;
       
       if (!providerToken) {
-        toast.error('ফেসবুক টোকেন পাওয়া যায়নি। দয়া করে লগআউট করে আবার "Connect with Facebook" দিয়ে লগইন করুন।');
-        setIsFetchingPages(false);
+        toast.error('নতুন টোকেন প্রয়োজন। আপনাকে রিডাইরেক্ট করা হচ্ছে...');
+        await triggerFacebookLogin();
         return;
       }
       
@@ -105,6 +118,16 @@ export default function IntegrationsPage() {
       const data = await response.json();
       
       if (data.error) {
+        if (
+          data.error.message.includes('OAuthException') || 
+          data.error.message.includes('authorized application') || 
+          data.error.message.includes('validating access token') || 
+          data.error.message.includes('expired')
+        ) {
+          toast.error('আপনার সেশন এক্সপায়ার হয়েছে বা বাতিল টোকেন! আবার লগইন করা হচ্ছে...');
+          await triggerFacebookLogin();
+          return;
+        }
         throw new Error(data.error.message || 'Graph API Error');
       }
       
