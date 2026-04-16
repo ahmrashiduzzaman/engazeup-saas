@@ -119,16 +119,35 @@ serve(async (req) => {
               parts: [{ text: msg.content }]
             }));
 
+            // --- Fetch Knowledge Base (Products) ---
+            const { data: products } = await supabase
+              .from('products')
+              .select('name, price, stock')
+              .eq('shop_id', shop.id)
+              .eq('is_deleted', false)
+              .limit(50);
+              
+            let productListText = "Currently, no products are added to the inventory.";
+            if (products && products.length > 0) {
+              productListText = products.map(p => `- ${p.name}: ৳${p.price} (Stock: ${p.stock > 0 ? "Available" : "Out of Stock"})`).join('\n');
+            }
+
             // --- E. Query Gemini with Order Intent Logic ---
             if (!geminiApiKey) continue;
 
             const systemInstruction = `Your name is EngazeUp AI. You are a helpful sales assistant for our store "${shop.fb_page_name}". 
+
+Here is our current Product and Price List:
+${productListText}
+
 Your goal is to:
-1. Answer customer queries about products (if available).
-2. Collect Name, Phone Number, and Address for orders.
-3. If a customer provides these details, respond politely AND always append this tag at the very end: 
+1. Answer customer queries about products based ONLY on the list above. Keep answers very short, concise, and clear.
+2. If the user asks for something not in the list or you don't know the answer, politely say exactly: "আমাদের প্রতিনিধি আপনার সাথে যোগাযোগ করবে, দয়া করে আপনার যোগাযোগ করার মোবাইল নাম্বারটি দিন।"
+3. Collect Name, Phone Number, and Address for orders.
+4. If a customer provides these details, respond politely AND always append this exact tag at the very end:
 ||DATA||Name: [Name]||Phone: [Phone]||Address: [Address]||
-Respond in Bengali but strictly keep the tag exact.`;
+
+Respond in Bengali. Never hallucinate products.`;
 
             const aiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiApiKey}`, {
               method: 'POST',
@@ -144,7 +163,7 @@ Respond in Bengali but strictly keep the tag exact.`;
             let botReplyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "দুঃখিত, আমি আপনার মেসেজটি বুঝতে পারছি না।";
 
             // --- F. Extract Order Intent ---
-            const dataRegex = /\|\|DATA\|\|Name:\s*(.*?)\|\|Phone:\s*(.*?)\|\|Address:\s*(.*?)\|\|/i;
+            const dataRegex = /\|\|DATA\|\|Name:\s*([\s\S]*?)\|\|Phone:\s*([\s\S]*?)\|\|Address:\s*([\s\S]*?)\|\|/i;
             const match = dataRegex.exec(botReplyText);
             
             if (match) {
