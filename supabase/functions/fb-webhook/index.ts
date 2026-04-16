@@ -56,26 +56,9 @@ serve(async (req) => {
 
             if (!shop || !shop.fb_page_access_token) continue;
 
-            // --- B. Customer Sync ---
-            // Ensure this user exists in the customers table to show up in Customer Directory
-            const { data: existingCust } = await supabase
-              .from('customers')
-              .select('id')
-              .eq('shop_id', shop.id)
-              .eq('phone', senderPsid) // Temporarily using PSID as phone if real phone isn't known
-              .single();
-              
-            if (!existingCust) {
-              await supabase.from('customers').insert({
-                shop_id: shop.id,
-                name: "Facebook User",
-                phone: senderPsid,
-                total_spent: 0,
-                total_orders: 0
-              });
-            }
+            // Removed premature Customer Sync. We will only add customers to CRM when they provide a phone number.
 
-            // --- C. Load or Create Conversation ---
+            // --- B. Load or Create Conversation ---
             let { data: conversation } = await supabase
               .from('conversations')
               .select('*')
@@ -144,7 +127,7 @@ Your goal is to:
 1. Answer customer queries about products based ONLY on the list above. Keep answers very short, concise, and clear.
 2. If the user asks for something not in the list or you don't know the answer, politely say exactly: "আমাদের প্রতিনিধি আপনার সাথে যোগাযোগ করবে, দয়া করে আপনার যোগাযোগ করার মোবাইল নাম্বারটি দিন।"
 3. Collect Name, Phone Number, and Address for orders.
-4. If a customer provides these details, respond politely AND always append this exact tag at the very end:
+4. If a customer provides these details, respond politely AND always append this exact tag at the very end. DO NOT use markdown, bold, or code blocks around it:
 ||DATA||Name: [Name]||Phone: [Phone]||Address: [Address]||
 
 Respond in Bengali. Never hallucinate products.`;
@@ -155,7 +138,7 @@ Respond in Bengali. Never hallucinate products.`;
               body: JSON.stringify({
                 system_instruction: { parts: { text: systemInstruction } },
                 contents: geminiHistory,
-                generationConfig: { temperature: 0.5, maxOutputTokens: 200 }
+                generationConfig: { temperature: 0.5, maxOutputTokens: 250 }
               })
             });
 
@@ -163,7 +146,7 @@ Respond in Bengali. Never hallucinate products.`;
             let botReplyText = aiData?.candidates?.[0]?.content?.parts?.[0]?.text || "দুঃখিত, আমি আপনার মেসেজটি বুঝতে পারছি না।";
 
             // --- F. Extract Order Intent ---
-            const dataRegex = /\|\|DATA\|\|Name:\s*([\s\S]*?)\|\|Phone:\s*([\s\S]*?)\|\|Address:\s*([\s\S]*?)\|\|/i;
+            const dataRegex = /\|\|DATA\|\|\s*Name:\s*([\s\S]*?)\|\|\s*Phone:\s*([\s\S]*?)\|\|\s*Address:\s*([\s\S]*?)(?:\|\||$)/i;
             const match = dataRegex.exec(botReplyText);
             
             if (match) {
@@ -173,6 +156,7 @@ Respond in Bengali. Never hallucinate products.`;
               
               // Remove the hidden tag from the user reply
               botReplyText = botReplyText.replace(match[0], '').trim();
+              if(!botReplyText) botReplyText = "আপনার অর্ডারটি প্রসেস করা হচ্ছে। বিস্তারিত ইনভয়েস কনফার্ম করা হবে।";
 
               // Insert into orders table
               await supabase.from('orders').insert({
@@ -181,15 +165,23 @@ Respond in Bengali. Never hallucinate products.`;
                 phone_number: extractedPhone,
                 source: "Facebook AI",
                 status: "Pending",
-                cod_amount: 0, // Admin will edit later
+                cod_amount: 0,
                 address: extractedAddress
               });
               
-              // Update customer real phone and name if available
-              await supabase.from('customers').update({ 
-                name: extractedName,
-                phone: extractedPhone 
-              }).eq('shop_id', shop.id).eq('phone', senderPsid);
+              // Upsert pure customer based on real phone only
+              const { data: realCust } = await supabase.from('customers').select('id').eq('shop_id', shop.id).eq('phone', extractedPhone).single();
+              if (realCust) {
+                await supabase.from('customers').update({ name: extractedName }).eq('id', realCust.id);
+              } else {
+                await supabase.from('customers').insert({
+                  shop_id: shop.id,
+                  name: extractedName,
+                  phone: extractedPhone,
+                  total_spent: 0,
+                  total_orders: 1
+                });
+              }
             }
 
             // --- G. Send Reply to Facebook ---
