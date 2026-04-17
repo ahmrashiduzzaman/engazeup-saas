@@ -126,8 +126,7 @@ ${productListText}
 Your goal is to:
 1. Answer customer queries about products based ONLY on the list above. Keep answers very short, concise, and clear.
 2. If the user asks for something not in the list or you don't know the answer, politely say exactly: "আমাদের প্রতিনিধি আপনার সাথে যোগাযোগ করবে, দয়া করে আপনার যোগাযোগ করার মোবাইল নাম্বারটি দিন।"
-3. Collect Name, Phone Number, and Address for orders.
-4. If a customer provides these details, respond politely AND always append this exact tag at the very end. DO NOT use markdown, bold, or code blocks around it:
+3. কাস্টমার যখনই তার নাম, ফোন নম্বর বা ঠিকানা দিবে, সে অর্ডার করতে চাক বা না চাক—তুমি অবশ্যই উত্তরের শেষে এই ট্যাগটি যোগ করবে (DO NOT use markdown around it):
 ||DATA||Name: [Name]||Phone: [Phone]||Address: [Address]||
 
 Respond in Bengali. Never hallucinate products.`;
@@ -138,7 +137,7 @@ Respond in Bengali. Never hallucinate products.`;
               body: JSON.stringify({
                 system_instruction: { parts: { text: systemInstruction } },
                 contents: geminiHistory,
-                generationConfig: { temperature: 0.5, maxOutputTokens: 250 }
+                generationConfig: { temperature: 0.5, maxOutputTokens: 500 }
               })
             });
 
