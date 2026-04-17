@@ -156,10 +156,10 @@ Respond in Bengali. Never hallucinate products.`;
               
               // Remove the hidden tag from the user reply
               botReplyText = botReplyText.replace(match[0], '').trim();
-              if(!botReplyText) botReplyText = "আপনার অর্ডারটি প্রসেস করা হচ্ছে। বিস্তারিত ইনভয়েস কনফার্ম করা হবে।";
+              if(!botReplyText) botReplyText = "আপনার অর্ডারটি প্রসেস করা হচ্ছে।";
 
-              // Insert into orders table
-              await supabase.from('orders').insert({
+              // এখানে অবশ্যই AWAIT ব্যবহার করতে হবে যাতে ডাটাবেজ সময় পায়
+              const { error: orderError } = await supabase.from('orders').insert({
                 shop_id: shop.id,
                 customer_name: extractedName,
                 phone_number: extractedPhone,
@@ -169,19 +169,17 @@ Respond in Bengali. Never hallucinate products.`;
                 address: extractedAddress
               });
               
-              // Upsert pure customer based on real phone only
-              const { data: realCust } = await supabase.from('customers').select('id').eq('shop_id', shop.id).eq('phone', extractedPhone).single();
-              if (realCust) {
-                await supabase.from('customers').update({ name: extractedName }).eq('id', realCust.id);
-              } else {
-                await supabase.from('customers').insert({
-                  shop_id: shop.id,
-                  name: extractedName,
-                  phone: extractedPhone,
-                  total_spent: 0,
-                  total_orders: 1
-                });
-              }
+              if (orderError) console.error("Order Insert Error:", orderError);
+
+              // কাস্টমার আপডেট লজিক
+              const { error: custError } = await supabase.from('customers').upsert({
+                shop_id: shop.id,
+                name: extractedName,
+                phone: extractedPhone,
+                total_orders: 1
+              }, { onConflict: 'phone' }); // ফোন নম্বর মিললে শুধু নাম আপডেট করবে
+              
+              if (custError) console.error("Customer Upsert Error:", custError);
             }
 
             // --- G. Send Reply to Facebook ---
