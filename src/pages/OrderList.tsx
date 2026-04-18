@@ -11,7 +11,9 @@ export default function OrderList() {
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
-  const [processingOrder, setProcessingOrder] = useState<string | null>(null);
+  const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
+  const [selectedCourier, setSelectedCourier] = useState<string>('Steadfast');
+  const [isBulkSending, setIsBulkSending] = useState(false);
 
   const fetchOrders = async () => {
     if (!user) return;
@@ -29,6 +31,7 @@ export default function OrderList() {
       setFetchError(`ডাটা লোড করতে সমস্যা হয়েছে: ${error.message}`);
     } else {
       setOrders(data || []);
+      setSelectedOrders([]); // Reset selection on fetch
     }
     setIsLoading(false);
   };
@@ -49,9 +52,23 @@ export default function OrderList() {
     }
   };
 
-  const handleSendToCourier = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setProcessingOrder(id);
+  const toggleOrderSelection = (id: string) => {
+    setSelectedOrders(prev => 
+      prev.includes(id) ? prev.filter(orderId => orderId !== id) : [...prev, id]
+    );
+  };
+
+  const toggleAllSelection = () => {
+    if (selectedOrders.length === pendingOrders.length && pendingOrders.length > 0) {
+      setSelectedOrders([]);
+    } else {
+      setSelectedOrders(pendingOrders.map(o => o.id));
+    }
+  };
+
+  const handleBulkSendToCourier = async () => {
+    if (selectedOrders.length === 0) return;
+    setIsBulkSending(true);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -62,7 +79,7 @@ export default function OrderList() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`
         },
-        body: JSON.stringify({ orderId: id })
+        body: JSON.stringify({ orderIds: selectedOrders, courierName: selectedCourier })
       });
 
       const data = await response.json();
@@ -71,15 +88,17 @@ export default function OrderList() {
         throw new Error(data.error || 'Failed to send to courier');
       }
 
-      toast.success('কুরিয়ারে সফলভাবে পাঠানো হয়েছে!');
+      toast.success(data.message || 'কুরিয়ারে সফলভাবে পাঠানো হয়েছে!');
       fetchOrders();
     } catch (err: any) {
       console.error('Send to courier error:', err);
       toast.error('সমস্যা হয়েছে: ' + err.message);
     } finally {
-      setProcessingOrder(null);
+      setIsBulkSending(false);
     }
   };
+
+  const pendingOrders = orders.filter(o => o.status?.toLowerCase() === 'pending' || !o.tracking_id);
 
   const getFraudRisk = (phone: string, allOrders: any[]) => {
     if (!phone) return { icon: '🟡', label: 'অজানা', color: 'text-amber-600 bg-amber-50 border-amber-200' };
@@ -111,10 +130,49 @@ export default function OrderList() {
             <code className="block mt-3 bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-left font-en text-gray-700 whitespace-pre-wrap">{`UPDATE public.orders SET shop_id = '${user?.id}' WHERE shop_id IS NULL;`}</code>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse whitespace-nowrap text-sm font-en">
-              <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
-                <tr>
+          <div>
+            {pendingOrders.length > 0 && (
+              <div className="bg-gray-50 border-b border-gray-200 p-4 flex flex-col md:flex-row gap-4 justify-between items-center">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-bold text-gray-700 bg-white px-3 py-1.5 rounded-lg border border-gray-200">
+                    নির্বাচিত: {selectedOrders.length}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 w-full md:w-auto">
+                  <select 
+                    value={selectedCourier} 
+                    onChange={e => setSelectedCourier(e.target.value)}
+                    className="p-2 border border-gray-300 rounded-lg text-sm bg-white outline-none focus:border-[#0F6E56] font-en"
+                  >
+                    <option value="Steadfast">Steadfast Courier</option>
+                    <option value="Pathao">Pathao Courier</option>
+                    <option value="RedX">RedX Courier</option>
+                  </select>
+                  <button 
+                    onClick={handleBulkSendToCourier}
+                    disabled={selectedOrders.length === 0 || isBulkSending}
+                    className="bg-[#0F6E56] hover:bg-[#1D9E75] text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 transition disabled:opacity-50 flex-1 md:flex-auto justify-center"
+                  >
+                    {isBulkSending ? <Loader2 size={16} className="animate-spin" /> : <Truck size={16} />}
+                    <span className="hidden sm:inline">Send Selected to Courier</span>
+                    <span className="sm:hidden">Send</span>
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse whitespace-nowrap text-sm font-en">
+                <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
+                  <tr>
+                    <th className="p-4 w-12 text-center">
+                      <input 
+                        type="checkbox" 
+                        className="rounded border-gray-300 text-[#0F6E56] focus:ring-[#0F6E56] w-4 h-4 cursor-pointer"
+                        checked={selectedOrders.length === pendingOrders.length && pendingOrders.length > 0}
+                        onChange={toggleAllSelection}
+                        disabled={pendingOrders.length === 0}
+                      />
+                    </th>
                   <th className="p-4 font-medium">Order ID</th>
                   <th className="p-4 font-medium font-bengali">Customer</th>
                   <th className="p-4 font-medium">Phone</th>
@@ -135,7 +193,21 @@ export default function OrderList() {
                     </td>
                   </tr>
                 ) : orders.map((order) => (
-                  <tr key={order.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                  <tr key={order.id} className={`border-b border-gray-50 hover:bg-gray-50 transition-colors ${selectedOrders.includes(order.id) ? 'bg-[#0F6E56]/5' : ''}`}>
+                    <td className="p-4 text-center">
+                      {(order.status?.toLowerCase() === 'pending' || !order.tracking_id) ? (
+                        <input 
+                          type="checkbox" 
+                          className="rounded border-gray-300 text-[#0F6E56] focus:ring-[#0F6E56] w-4 h-4 cursor-pointer"
+                          checked={selectedOrders.includes(order.id)}
+                          onChange={() => toggleOrderSelection(order.id)}
+                        />
+                      ) : (
+                        <div className="w-4 h-4 mx-auto rounded-full bg-green-100 flex items-center justify-center">
+                          <span className="text-[10px]">✓</span>
+                        </div>
+                      )}
+                    </td>
                     <td className="p-4 font-extrabold text-gray-900">{String(order.id).slice(0, 8).toUpperCase()}</td>
                     <td className="p-4 font-bold text-gray-700 font-bengali">{order.customer_name}</td>
                     <td className="p-4 text-gray-600 font-medium">{order.phone_number}</td>
@@ -158,16 +230,12 @@ export default function OrderList() {
                     <td className="p-4 text-right font-extrabold text-[#0F6E56]">৳ {Number(order.cod_amount).toLocaleString('en-IN')}</td>
                     <td className="p-4 text-center">
                       <div className="flex justify-end gap-2 items-center">
-                        {(order.status?.toLowerCase() === 'pending' || !order.tracking_id) && (
-                          <button 
-                            onClick={(e) => handleSendToCourier(order.id, e)} 
-                            disabled={processingOrder === order.id}
-                            className="p-1.5 bg-[#0F6E56]/10 rounded hover:bg-[#0F6E56] hover:text-white text-[#0F6E56] font-bold text-xs flex items-center gap-1 transition disabled:opacity-50" 
-                            title="কুরিয়ারে পাঠান"
-                          >
-                            {processingOrder === order.id ? <Loader2 size={16} className="animate-spin" /> : <Truck size={16} />}
-                          </button>
-                        )}
+                        {(order.tracking_id) ? (
+                            <div className="text-right flex flex-col items-end">
+                              <span className="text-xs font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md mb-1">Shipped</span>
+                              <span className="text-[10px] text-gray-500 font-medium">Trk: {order.tracking_id}</span>
+                            </div>
+                        ) : null}
                         <button onClick={(e) => handleDelete(order.id, e)} className="p-1.5 bg-red-50 rounded hover:bg-red-500 hover:text-white text-red-500 transition" title="মুছে ফেলুন">
                           <Trash2 size={16} />
                         </button>
