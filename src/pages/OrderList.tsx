@@ -3,13 +3,15 @@ import DashboardLayout from '../components/DashboardLayout';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { statusBadgeTone, courierColors } from '../lib/utils';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Truck, Loader2 } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 export default function OrderList() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [processingOrder, setProcessingOrder] = useState<string | null>(null);
 
   const fetchOrders = async () => {
     if (!user) return;
@@ -44,6 +46,38 @@ export default function OrderList() {
         .eq('id', id);
 
       if (!error) fetchOrders();
+    }
+  };
+
+  const handleSendToCourier = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setProcessingOrder(id);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const response = await fetch('https://otvzexarrpuaewjjdxna.supabase.co/functions/v1/send-courier', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`
+        },
+        body: JSON.stringify({ orderId: id })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send to courier');
+      }
+
+      toast.success('কুরিয়ারে সফলভাবে পাঠানো হয়েছে!');
+      fetchOrders();
+    } catch (err: any) {
+      console.error('Send to courier error:', err);
+      toast.error('সমস্যা হয়েছে: ' + err.message);
+    } finally {
+      setProcessingOrder(null);
     }
   };
 
@@ -123,9 +157,21 @@ export default function OrderList() {
                     </td>
                     <td className="p-4 text-right font-extrabold text-[#0F6E56]">৳ {Number(order.cod_amount).toLocaleString('en-IN')}</td>
                     <td className="p-4 text-center">
-                      <button onClick={(e) => handleDelete(order.id, e)} className="p-1.5 bg-red-50 rounded hover:bg-red-500 hover:text-white text-red-500 transition ml-auto" title="মুছে ফেলুন">
-                        <Trash2 size={16} />
-                      </button>
+                      <div className="flex justify-end gap-2 items-center">
+                        {(order.status?.toLowerCase() === 'pending' || !order.tracking_id) && (
+                          <button 
+                            onClick={(e) => handleSendToCourier(order.id, e)} 
+                            disabled={processingOrder === order.id}
+                            className="p-1.5 bg-[#0F6E56]/10 rounded hover:bg-[#0F6E56] hover:text-white text-[#0F6E56] font-bold text-xs flex items-center gap-1 transition disabled:opacity-50" 
+                            title="কুরিয়ারে পাঠান"
+                          >
+                            {processingOrder === order.id ? <Loader2 size={16} className="animate-spin" /> : <Truck size={16} />}
+                          </button>
+                        )}
+                        <button onClick={(e) => handleDelete(order.id, e)} className="p-1.5 bg-red-50 rounded hover:bg-red-500 hover:text-white text-red-500 transition" title="মুছে ফেলুন">
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
