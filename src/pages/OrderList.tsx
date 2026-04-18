@@ -73,11 +73,12 @@ export default function OrderList() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
-      const response = await fetch('https://otvzexarrpuaewjjdxna.supabase.co/functions/v1/send-courier', {
+      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-courier`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`
+          'Authorization': `Bearer ${session?.access_token}`,
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
         },
         body: JSON.stringify({ orderIds: selectedOrders, courierName: selectedCourier })
       });
@@ -145,6 +146,7 @@ export default function OrderList() {
                     className="p-2 border border-gray-300 rounded-lg text-sm bg-white outline-none focus:border-[#0F6E56] font-en"
                   >
                     <option value="Steadfast">Steadfast Courier</option>
+                    <option value="Paperfly">Paperfly Courier</option>
                     <option value="Pathao">Pathao Courier</option>
                     <option value="RedX">RedX Courier</option>
                   </select>
