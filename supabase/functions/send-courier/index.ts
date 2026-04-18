@@ -42,19 +42,15 @@ serve(async (req) => {
       console.log(`[INFO] Sending order ${order.id} to ${courier}...`)
 
       let trackingId = ''
+      let isSuccess = false
+      let apiErrorMessage = ''
 
       if (courier === 'Paperfly') {
-        // ──────────────────────────────────────────────
-        // PAPERFLY API CALL
-        // Paperfly API credentials are read from Supabase secrets
-        // ──────────────────────────────────────────────
         const paperflyCid = Deno.env.get('PAPERFLY_CID') ?? ''
         const paperflySecretKey = Deno.env.get('PAPERFLY_SECRET_KEY') ?? ''
 
         if (!paperflyCid || !paperflySecretKey) {
-          // Credentials not set yet — use mock until credentials are provided
-          console.warn('[WARN] PAPERFLY_CID or PAPERFLY_SECRET_KEY not set. Using mock tracking ID.')
-          trackingId = 'PAPERFLY-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+          apiErrorMessage = 'Paperfly credentials missing'
         } else {
           try {
             const paperflyRes = await fetch('https://api.paperfly.com.bd/api/parcel/add', {
@@ -75,26 +71,21 @@ serve(async (req) => {
             const pfData = await paperflyRes.json()
             if (pfData?.success && pfData?.data?.tracking_no) {
               trackingId = pfData.data.tracking_no
-              console.log(`[INFO] Paperfly tracking: ${trackingId}`)
+              isSuccess = true
             } else {
-              console.error('[ERROR] Paperfly response:', JSON.stringify(pfData))
-              trackingId = 'PAPERFLY-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+              apiErrorMessage = pfData?.message || 'Paperfly API failed'
             }
           } catch (pfErr: any) {
-            console.error('[ERROR] Paperfly API failed:', pfErr.message)
-            trackingId = 'PAPERFLY-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+            apiErrorMessage = pfErr.message
           }
         }
 
       } else if (courier === 'Steadfast') {
-        // ──────────────────────────────────────────────
-        // STEADFAST API CALL (রিয়েল API বা Mock)
-        // ──────────────────────────────────────────────
         const sfApiKey = Deno.env.get('STEADFAST_API_KEY') ?? ''
         const sfSecretKey = Deno.env.get('STEADFAST_SECRET_KEY') ?? ''
 
         if (!sfApiKey || !sfSecretKey) {
-          trackingId = 'STEADFAST-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+          apiErrorMessage = 'Steadfast credentials missing'
         } else {
           try {
             const sfRes = await fetch('https://portal.steadfast.com.bd/api/v1/create_order', {
@@ -113,18 +104,30 @@ serve(async (req) => {
               })
             })
             const sfData = await sfRes.json()
-            trackingId = sfData?.consignment?.tracking_code
-              ?? 'STEADFAST-' + Math.random().toString(36).substring(2, 10).toUpperCase()
-          } catch {
-            trackingId = 'STEADFAST-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+            if (sfData?.status === 200 && sfData?.consignment?.tracking_code) {
+              trackingId = sfData.consignment.tracking_code
+              isSuccess = true
+            } else {
+              const msg = sfData?.errors ? JSON.stringify(sfData.errors) : (sfData?.message || 'Steadfast API error')
+              apiErrorMessage = msg
+            }
+          } catch (err: any) {
+             apiErrorMessage = err.message
           }
         }
       } else {
         // Pathao, RedX, ইত্যাদি — এখন Mock
         trackingId = `${courier.toUpperCase()}-` + Math.random().toString(36).substring(2, 10).toUpperCase()
+        isSuccess = true
       }
 
-      // 3. Update Order in Database
+      if (!isSuccess) {
+         console.error(`[ERROR] Courier API failed for order ${order.id}: ${apiErrorMessage}`)
+         results.push({ orderId: order.id, success: false, error: apiErrorMessage })
+         continue // Skip updating the DB to Shipped
+      }
+
+      // 3. Update Order in Database if Success
       const { error: updateError } = await supabase
         .from('orders')
         .update({
