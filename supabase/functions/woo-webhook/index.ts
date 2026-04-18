@@ -1,0 +1,126 @@
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+
+const SHOP_ID = 'e00bc024-f025-42b3-923b-626fff0c9c4d';
+
+serve(async (req) => {
+  if (req.method !== 'POST') {
+    return new Response('Method Not Allowed', { status: 405 });
+  }
+
+  try {
+    const payload = await req.json();
+
+    // WooCommerce Webhook payload usually has id and billing/shipping info
+    const wooOrderId = payload?.id?.toString();
+    if (!wooOrderId) {
+      return new Response('Missing WooCommerce Order ID', { status: 400 });
+    }
+
+    const phone = payload?.billing?.phone || payload?.shipping?.phone || '';
+    if (!phone) {
+      console.warn('[WARN] No phone number provided in WooCommerce payload.');
+      // Without phone we can't reliably deduplicate, but we can still save if needed, although user wants 24h duplicate check using phone.
+    }
+
+    const firstName = payload?.billing?.first_name || '';
+    const lastName = payload?.billing?.last_name || '';
+    const customerName = `${firstName} ${lastName}`.trim() || 'WooCommerce Customer';
+
+    const address = payload?.shipping?.address_1 || payload?.billing?.address_1 || 'Unknown Address';
+    let codAmount = payload?.total ? Number(payload?.total) : 0;
+
+    // Supabase Client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    let existingOrder = null;
+
+    if (phone) {
+      // 1. Check if an order with the same phone exists within the last 24 hours
+      const yesterday = new Date();
+      yesterday.setHours(yesterday.getHours() - 24);
+
+      const { data: recentOrders, error: fetchError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('phone_number', phone)
+        .gte('created_at', yesterday.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(1);
+
+      if (fetchError) {
+        console.error('[ERROR] Failed to fetch existing orders:', fetchError.message);
+      } else if (recentOrders && recentOrders.length > 0) {
+        existingOrder = recentOrders[0];
+      }
+    }
+
+    if (existingOrder) {
+      // 2. Duplicate found! Update existing order instead of creating new
+      console.log(`[INFO] Duplicate found for phone ${phone}. Updating existing order ${existingOrder.id} with woo_order_id ${wooOrderId}`);
+      
+      const { error: updateError } = await supabase
+        .from('orders')
+        .update({ woo_order_id: wooOrderId })
+        .eq('id', existingOrder.id);
+
+      if (updateError) {
+        console.error('[ERROR] Failed to update existing order woo_order_id:', updateError.message);
+        return new Response('Failed to update duplicate order', { status: 500 });
+      }
+
+      return new Response(JSON.stringify({
+        status: 'success',
+        action: 'updated_duplicate',
+        updated_id: existingOrder.id,
+        woo_order_id: wooOrderId
+      }), { headers: { 'Content-Type': 'application/json' }, status: 200 });
+
+    } else {
+      // 3. No duplicate found. Insert as new order.
+      console.log(`[INFO] New order for phone ${phone}. Inserting with woo_order_id ${wooOrderId}`);
+
+      // Optional: Upsert customer logic could be added here similar to fb-webhook
+      await supabase.from('customers').upsert({
+        shop_id: SHOP_ID,
+        name: customerName,
+        phone: phone,
+        is_deleted: false,
+        total_orders: 1
+      }, { onConflict: 'phone' });
+
+      // Insert new order
+      const newOrderData = {
+        shop_id: SHOP_ID,
+        customer_name: customerName,
+        phone_number: phone,
+        address: address,
+        source: 'WooCommerce',
+        status: 'Pending',
+        cod_amount: codAmount,
+        woo_order_id: wooOrderId
+      };
+
+      const { error: insertError } = await supabase
+        .from('orders')
+        .insert(newOrderData);
+
+      if (insertError) {
+        console.error('[ERROR] Failed to insert new WooCommerce order:', insertError.message);
+        return new Response('Failed to insert new order', { status: 500 });
+      }
+
+      return new Response(JSON.stringify({
+        status: 'success',
+        action: 'inserted_new',
+        woo_order_id: wooOrderId
+      }), { headers: { 'Content-Type': 'application/json' }, status: 200 });
+    }
+
+  } catch (error: any) {
+    console.error('[FATAL] Error processing WooCommerce webhook:', error.message);
+    return new Response('Internal Server Error', { status: 500 });
+  }
+});
