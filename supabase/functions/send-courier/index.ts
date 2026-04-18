@@ -7,6 +7,12 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS'
 }
 
+const banglaToEnglishDigits = (str: string) => {
+  const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯']
+  if (!str) return ''
+  return str.replace(/[০-৯]/g, (w) => banglaDigits.indexOf(w).toString())
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -63,7 +69,7 @@ serve(async (req) => {
               body: JSON.stringify({
                 merch_order_id: order.id,
                 recipient_name: order.customer_name,
-                recipient_phone: order.phone_number,
+                recipient_phone: banglaToEnglishDigits(order.phone_number) || '01000000000',
                 recipient_address: order.address ?? '',
                 cod_amount: order.cod_amount ?? 0
               })
@@ -91,7 +97,7 @@ serve(async (req) => {
             const payload = {
               invoice: String(order.id),
               recipient_name: order.customer_name || 'Unknown',
-              recipient_phone: order.phone_number || '01000000000',
+              recipient_phone: banglaToEnglishDigits(order.phone_number) || '01000000000',
               recipient_address: order.address || 'Unknown Address',
               cod_amount: Number(order.cod_amount) || 0
             }
