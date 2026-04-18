@@ -88,6 +88,15 @@ serve(async (req) => {
           apiErrorMessage = 'Steadfast credentials missing'
         } else {
           try {
+            const payload = {
+              invoice: String(order.id),
+              recipient_name: order.customer_name || 'Unknown',
+              recipient_phone: order.phone_number || '01000000000',
+              recipient_address: order.address || 'Unknown Address',
+              cod_amount: Number(order.cod_amount) || 0
+            }
+            console.log(`[INFO] Steadfast Payload:`, JSON.stringify(payload))
+
             const sfRes = await fetch('https://portal.steadfast.com.bd/api/v1/create_order', {
               method: 'POST',
               headers: {
@@ -95,19 +104,23 @@ serve(async (req) => {
                 'Secret-Key': sfSecretKey,
                 'Content-Type': 'application/json'
               },
-              body: JSON.stringify({
-                invoice: order.id,
-                recipient_name: order.customer_name,
-                recipient_phone: order.phone_number,
-                recipient_address: order.address ?? '',
-                cod_amount: order.cod_amount ?? 0
-              })
+              body: JSON.stringify(payload)
             })
-            const sfData = await sfRes.json()
+
+            const sfResText = await sfRes.text()
+            console.log(`[INFO] Steadfast Raw Response:`, sfResText)
+
+            let sfData;
+            try {
+              sfData = JSON.parse(sfResText)
+            } catch (e) {
+              apiErrorMessage = 'Failed to parse Steadfast response'
+            }
+
             if (sfData?.status === 200 && sfData?.consignment?.tracking_code) {
               trackingId = sfData.consignment.tracking_code
               isSuccess = true
-            } else {
+            } else if (sfData) {
               const msg = sfData?.errors ? JSON.stringify(sfData.errors) : (sfData?.message || 'Steadfast API error')
               apiErrorMessage = msg
             }
