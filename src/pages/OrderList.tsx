@@ -246,6 +246,7 @@ export default function OrderList() {
               </tbody>
             </table>
           </div>
+          </div>
         )}
       </div>
     </DashboardLayout>
