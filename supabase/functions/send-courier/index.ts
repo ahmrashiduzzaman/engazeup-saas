@@ -97,7 +97,7 @@ serve(async (req) => {
             }
             console.log(`[INFO] Steadfast Payload:`, JSON.stringify(payload))
 
-            const sfRes = await fetch('https://portal.steadfast.com.bd/api/v1/create_order', {
+            const sfRes = await fetch('https://portal.packzy.com/api/v1/create_order', {
               method: 'POST',
               headers: {
                 'Api-Key': sfApiKey,
