@@ -21,22 +21,34 @@ export default function CustomerDirectory() {
   const tableScrollRef = React.useRef<HTMLDivElement>(null);
   const tableContentRef = React.useRef<HTMLTableElement>(null);
   const [tableWidth, setTableWidth] = useState<number>(1000);
+  const isSyncingLeft = React.useRef(false);
 
   useEffect(() => {
-    if (tableContentRef.current) {
-      setTableWidth(tableContentRef.current.scrollWidth);
-    }
+    const updateWidth = () => {
+      if (tableContentRef.current) {
+        setTableWidth(tableContentRef.current.scrollWidth);
+      }
+    };
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
   }, [customers]);
 
   const handleTopScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (isSyncingLeft.current) return;
     if (tableScrollRef.current) {
+      isSyncingLeft.current = true;
       tableScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+      setTimeout(() => { isSyncingLeft.current = false; }, 10);
     }
   };
 
   const handleBottomScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (isSyncingLeft.current) return;
     if (topScrollRef.current) {
+      isSyncingLeft.current = true;
       topScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+      setTimeout(() => { isSyncingLeft.current = false; }, 10);
     }
   };
 
@@ -192,7 +204,7 @@ export default function CustomerDirectory() {
             <div 
               ref={tableScrollRef} 
               onScroll={handleBottomScroll}
-              className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-250px)] custom-scrollbar"
+              className="overflow-x-auto overflow-y-auto h-[65vh] 2xl:h-[75vh] custom-scrollbar"
             >
               <table ref={tableContentRef} className="w-full text-left border-collapse whitespace-nowrap text-sm font-en relative">
                 <thead className="bg-gray-50 border-b-2 border-gray-200 text-gray-700 sticky top-0 z-10 shadow-sm">
