@@ -219,7 +219,7 @@ export default function AuthPage({ isRegister }: { isRegister: boolean }) {
           <div className="mt-6 flex items-center justify-center gap-6 text-xs text-gray-400 font-medium">
             <span>🔒 SSL সুরক্ষিত</span>
             <span>🇧🇩 বাংলাদেশে তৈরি</span>
-            <span>⚡ ১ ক্লিক সেটআপ</span>
+            <span>⚡ <span style={{ fontFamily: "'Noto Sans Bengali', sans-serif", fontWeight: 700 }}>১</span> ক্লিক সেটআপ</span>
           </div>
         </div>
       </div>
