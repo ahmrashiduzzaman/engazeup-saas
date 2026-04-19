@@ -16,6 +16,30 @@ export default function CustomerDirectory() {
   const [smsMessage, setSmsMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
 
+  // Dual Scrollbar refs
+  const topScrollRef = React.useRef<HTMLDivElement>(null);
+  const tableScrollRef = React.useRef<HTMLDivElement>(null);
+  const tableContentRef = React.useRef<HTMLTableElement>(null);
+  const [tableWidth, setTableWidth] = useState<number>(1000);
+
+  useEffect(() => {
+    if (tableContentRef.current) {
+      setTableWidth(tableContentRef.current.scrollWidth);
+    }
+  }, [customers]);
+
+  const handleTopScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (tableScrollRef.current) {
+      tableScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
+  };
+
+  const handleBottomScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (topScrollRef.current) {
+      topScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+    }
+  };
+
   const fetchCustomers = async () => {
     if (!user) return;
     setIsLoading(true);
@@ -128,7 +152,7 @@ export default function CustomerDirectory() {
 
   return (
     <DashboardLayout title="কাস্টমার ডিরেক্টরি (CRM)" subtitle="আপনার কাস্টমার ডাটাবেস এবং Bulk SMS সিস্টেম">
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mt-6">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mt-6">
         <div className="p-5 border-b border-gray-200 flex justify-between items-center bg-white sticky top-0 z-20 shadow-sm">
           <h3 className="font-bold text-gray-700 font-bengali flex items-center gap-2">
             <Users className="w-4 h-4 text-[#0F6E56]" />
@@ -155,9 +179,23 @@ export default function CustomerDirectory() {
             <p className="text-gray-500 text-sm">সম্ভাব্য কারণ: customers টেবিল নেই — প্রাথমিক মাইগ্রেশন SQL রান করুন।</p>
           </div>
         ) : (
-          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-250px)]">
-            <table className="w-full text-left border-collapse whitespace-nowrap text-sm font-en relative">
-              <thead className="bg-gray-50 border-b-2 border-gray-200 text-gray-700 sticky top-0 z-10 shadow-sm">
+          <div className="border-t border-gray-100">
+            {/* Top Horizontal Scrollbar */}
+            <div 
+              ref={topScrollRef} 
+              onScroll={handleTopScroll} 
+              className="overflow-x-auto w-full border-b border-gray-100 custom-scrollbar"
+            >
+              <div style={{ width: `${tableWidth}px`, height: '1px' }}></div>
+            </div>
+
+            <div 
+              ref={tableScrollRef} 
+              onScroll={handleBottomScroll}
+              className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-250px)] custom-scrollbar"
+            >
+              <table ref={tableContentRef} className="w-full text-left border-collapse whitespace-nowrap text-sm font-en relative">
+                <thead className="bg-gray-50 border-b-2 border-gray-200 text-gray-700 sticky top-0 z-10 shadow-sm">
                 <tr>
                   <th className="p-4 font-medium">Customer ID</th>
                   <th className="p-4 font-medium font-bengali">Name</th>
