@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 
 // Pages
 import { supabase } from './lib/supabase';
@@ -32,6 +33,74 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+/**
+ * After a Facebook OAuth login, Supabase gives us a short-lived provider_token.
+ * We silently exchange it for long-lived page tokens in the background
+ * so that when the user visits Integrations they already have them ready.
+ */
+async function exchangeFbTokenInBackground(providerToken: string) {
+  try {
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://otvzexarrpuaewjjdxna.supabase.co';
+    const anonKey    = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+    const response = await fetch(`${supabaseUrl}/functions/v1/fb-token-exchange`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${anonKey}`,
+      },
+      body: JSON.stringify({ provider_token: providerToken }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      console.warn('[FB-TOKEN] Background exchange failed:', data.error);
+      return;
+    }
+
+    const pages = data.pages ?? [];
+    console.log(`[FB-TOKEN] Background exchange OK — ${pages.length} pages available.`);
+
+    // If the user has exactly one page, auto-save it silently
+    if (pages.length === 1) {
+      const { data: { session } } = await supabase.auth.getSession();
+      const userId = session?.user?.id;
+      if (!userId) return;
+
+      // Check if page is already connected
+      const { data: shopRow } = await supabase
+        .from('shops')
+        .select('fb_page_id')
+        .eq('id', userId)
+        .single();
+
+      if (!shopRow?.fb_page_id) {
+        const page = pages[0];
+        // Subscribe to FB Page webhooks
+        await fetch(
+          `https://graph.facebook.com/v19.0/${page.id}/subscribed_apps?subscribed_fields=messages,messaging_postbacks&access_token=${page.access_token}`,
+          { method: 'POST' }
+        );
+        // Save to DB
+        await supabase
+          .from('shops')
+          .update({
+            fb_page_id: page.id,
+            fb_page_name: page.name,
+            fb_page_access_token: page.access_token,
+          })
+          .eq('id', userId);
+
+        console.log(`[FB-TOKEN] Auto-connected single page: ${page.name}`);
+        toast.success(`✅ Facebook পেজ "${page.name}" অটোমেটিক কানেক্ট হয়ে গেছে!`, { duration: 5000 });
+      }
+    }
+  } catch (err: any) {
+    console.warn('[FB-TOKEN] Background exchange error:', err.message);
+  }
+}
+
 function AppRoutes() {
   const navigate = useNavigate();
 
@@ -40,10 +109,18 @@ function AppRoutes() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
         // Only redirect if they are on the login/register/landing pages
-        // This prevents ripping them out of deep links (like /orders) when they refresh the browser
         const path = window.location.pathname;
         if (path === '/' || path === '/login' || path === '/register') {
           navigate('/dashboard', { replace: true });
+        }
+
+        // 🔑 If logged in via Facebook OAuth, silently exchange tokens in background
+        const provider = session.user?.app_metadata?.provider;
+        const providerToken = session.provider_token;
+        if (provider === 'facebook' && providerToken) {
+          console.log('[FB-TOKEN] Facebook login detected — starting background token exchange...');
+          // Run in background, don't block navigation
+          exchangeFbTokenInBackground(providerToken);
         }
       }
     });

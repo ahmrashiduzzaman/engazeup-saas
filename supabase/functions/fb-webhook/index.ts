@@ -1,16 +1,16 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 
+// ── Webhook Verify Token (Facebook App Dashboard-এ সেট করতে হবে) ──
 const VERIFY_TOKEN = 'engazeup_secret';
-const SHOP_ID = 'e00bc024-f025-42b3-923b-626fff0c9c4d'; // সবসময় এই shop_id যাবে — NULL হবে না
 
 serve(async (req) => {
   const url = new URL(req.url);
 
   // ── 1. FACEBOOK WEBHOOK VERIFICATION (GET) ──
   if (req.method === 'GET') {
-    const mode = url.searchParams.get('hub.mode');
-    const token = url.searchParams.get('hub.verify_token');
+    const mode      = url.searchParams.get('hub.mode');
+    const token     = url.searchParams.get('hub.verify_token');
     const challenge = url.searchParams.get('hub.challenge');
 
     if (mode === 'subscribe' && token === VERIFY_TOKEN) {
@@ -39,18 +39,38 @@ serve(async (req) => {
           Deno.env.get('SUPABASE_URL')!,
           Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
         );
-        const fbToken = Deno.env.get('FB_PAGE_ACCESS_TOKEN') ?? '';
         const geminiApiKey = Deno.env.get('GEMINI_API_KEY') ?? '';
 
         for (const entry of body.entry ?? []) {
           const webhookEvent = entry.messaging?.[0];
           if (!webhookEvent?.message?.text || webhookEvent.message.is_echo) continue;
 
-          const senderPsid = webhookEvent.sender.id;
+          const senderPsid  = webhookEvent.sender.id;
+          const recipientId = webhookEvent.recipient.id; // ← этот это Page ID
           const incomingText = webhookEvent.message.text;
-          console.log(`[MSG] From: ${senderPsid} | Text: ${incomingText}`);
+          console.log(`[MSG] PageID=${recipientId} | From=${senderPsid} | Text=${incomingText}`);
 
-          // ── A. Gemini দিয়ে তথ্য বের করা (fail হলেও বাকি কাজ চলবে) ──
+          // ── A. DB থেকে shop খোঁজো — fb_page_id দিয়ে ──
+          // Multi-tenant: প্রতিটি shop-এর নিজস্ব page token ব্যবহার হবে
+          const { data: shopRow, error: shopErr } = await supabase
+            .from('shops')
+            .select('id, fb_page_access_token')
+            .eq('fb_page_id', recipientId)
+            .single();
+
+          if (shopErr || !shopRow) {
+            console.error(`[WARN] No shop found for Page ID=${recipientId}. Skipping.`);
+            continue;
+          }
+
+          const shopId  = shopRow.id;
+          const fbToken = shopRow.fb_page_access_token ?? '';
+
+          if (!fbToken) {
+            console.error(`[ERROR] fb_page_access_token is empty for shop=${shopId}`);
+          }
+
+          // ── B. Gemini দিয়ে তথ্য বের করা (fail হলেও বাকি কাজ চলবে) ──
           let cleanJson: any = { name: null, phone: null, address: null };
           try {
             const aiResponse = await fetch(
@@ -73,18 +93,17 @@ serve(async (req) => {
             console.log(`[GEMINI] Extracted: ${JSON.stringify(cleanJson)}`);
           } catch (geminiErr: any) {
             console.error('[ERROR] Gemini failed:', geminiErr.message);
-            // Gemini fail হলেও নিচের কাজ চলবে
           }
 
           let replyText = `আপনার মেসেজটি পেয়েছি। আমাদের প্রতিনিধি শীঘ্রই যোগাযোগ করবেন।`;
 
-          // ── B. ফোন নম্বর পেলে DB-তে সেভ করো ──
+          // ── C. ফোন নম্বর পেলে DB-তে সেভ করো ──
           if (cleanJson?.phone) {
-            console.log(`[DATA] Saving order & customer. SHOP_ID=${SHOP_ID}, phone=${cleanJson.phone}`);
+            console.log(`[DATA] Saving order & customer. shop_id=${shopId}, phone=${cleanJson.phone}`);
 
-            // Customer upsert
+            // Customer upsert (shop-specific)
             const { error: custError } = await supabase.from('customers').upsert({
-              shop_id: 'e00bc024-f025-42b3-923b-626fff0c9c4d',
+              shop_id: shopId,
               name: cleanJson.name || 'Customer',
               phone: cleanJson.phone,
               is_deleted: false,
@@ -93,9 +112,9 @@ serve(async (req) => {
             if (custError) console.error('[ERROR] Customer upsert:', JSON.stringify(custError));
             else console.log('[INFO] Customer saved.');
 
-            // Order insert
+            // Order insert (shop-specific)
             const { error: orderError } = await supabase.from('orders').insert({
-              shop_id: 'e00bc024-f025-42b3-923b-626fff0c9c4d',
+              shop_id: shopId,
               customer_name: cleanJson.name || 'Customer',
               phone_number: cleanJson.phone,
               address: cleanJson.address || 'Unknown',
@@ -109,10 +128,10 @@ serve(async (req) => {
             replyText = `ধন্যবাদ ${cleanJson.name || 'ভাই/আপু'}! আপনার অর্ডারটি আমরা পেয়েছি। আমাদের প্রতিনিধি শীঘ্রই যোগাযোগ করবেন।`;
           }
 
-          // ── C. সবসময় Facebook-এ reply পাঠাও ──
+          // ── D. সবসময় Facebook-এ reply পাঠাও ──
           if (fbToken) {
             const fbRes = await fetch(
-              `https://graph.facebook.com/v25.0/me/messages?access_token=${fbToken}`,
+              `https://graph.facebook.com/v20.0/me/messages?access_token=${fbToken}`,
               {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -126,7 +145,7 @@ serve(async (req) => {
             if (fbData.error) console.error('[ERROR] FB reply:', JSON.stringify(fbData.error));
             else console.log('[INFO] FB reply sent.');
           } else {
-            console.error('[ERROR] FB_PAGE_ACCESS_TOKEN is not set in Supabase secrets!');
+            console.error(`[ERROR] No fb_page_access_token for shop=${shopId}. Reply not sent.`);
           }
         }
       } catch (err: any) {
