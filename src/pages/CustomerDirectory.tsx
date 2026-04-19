@@ -129,7 +129,7 @@ export default function CustomerDirectory() {
   return (
     <DashboardLayout title="কাস্টমার ডিরেক্টরি (CRM)" subtitle="আপনার কাস্টমার ডাটাবেস এবং Bulk SMS সিস্টেম">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mt-6">
-        <div className="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+        <div className="p-5 border-b border-gray-200 flex justify-between items-center bg-white sticky top-0 z-20 shadow-sm">
           <h3 className="font-bold text-gray-700 font-bengali flex items-center gap-2">
             <Users className="w-4 h-4 text-[#0F6E56]" />
             কাস্টমার লিস্ট
@@ -155,9 +155,9 @@ export default function CustomerDirectory() {
             <p className="text-gray-500 text-sm">সম্ভাব্য কারণ: customers টেবিল নেই — প্রাথমিক মাইগ্রেশন SQL রান করুন।</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse whitespace-nowrap text-sm font-en">
-              <thead className="bg-white border-b border-gray-200 text-gray-600">
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-250px)]">
+            <table className="w-full text-left border-collapse whitespace-nowrap text-sm font-en relative">
+              <thead className="bg-gray-50 border-b-2 border-gray-200 text-gray-700 sticky top-0 z-10 shadow-sm">
                 <tr>
                   <th className="p-4 font-medium">Customer ID</th>
                   <th className="p-4 font-medium font-bengali">Name</th>
