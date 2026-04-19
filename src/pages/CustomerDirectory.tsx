@@ -196,19 +196,20 @@ export default function CustomerDirectory() {
             <div 
               ref={topScrollRef} 
               onScroll={handleTopScroll} 
-              className="overflow-x-auto w-full border-b border-gray-100 custom-scrollbar"
+              className="overflow-x-auto w-full"
             >
               <div style={{ width: `${tableWidth}px`, height: '1px' }}></div>
             </div>
 
-            <div 
-              ref={tableScrollRef} 
-              onScroll={handleBottomScroll}
-              className="overflow-x-auto overflow-y-auto h-[65vh] 2xl:h-[75vh] custom-scrollbar"
-            >
-              <table ref={tableContentRef} className="w-full text-left border-collapse whitespace-nowrap text-sm font-en relative">
-                <thead className="bg-gray-50 border-b-2 border-gray-200 text-gray-700 sticky top-0 z-10 shadow-sm">
-                <tr>
+            <div className="relative w-full overflow-hidden border rounded-lg">
+              <div 
+                ref={tableScrollRef} 
+                onScroll={handleBottomScroll}
+                className="max-h-[calc(100vh-250px)] overflow-y-auto overflow-x-auto w-full custom-scrollbar"
+              >
+                <table ref={tableContentRef} className="w-full text-left border-collapse whitespace-nowrap text-sm font-en">
+                  <thead className="sticky top-0 z-20 bg-white shadow-sm border-b-2 border-gray-200 text-gray-700">
+                  <tr>
                   <th className="p-4 font-medium">Customer ID</th>
                   <th className="p-4 font-medium font-bengali">Name</th>
                   <th className="p-4 font-medium">Phone Number</th>
@@ -244,7 +245,8 @@ export default function CustomerDirectory() {
             </table>
           </div>
         </div>
-        )}
+      </div>
+      )}
       </div>
 
       {/* ── BULK SMS MODAL ── */}
