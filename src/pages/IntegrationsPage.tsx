@@ -107,39 +107,53 @@ export default function IntegrationsPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const providerToken = session?.provider_token;
-      
+
       if (!providerToken) {
-        toast.error('নতুন টোকেন প্রয়োজন। আপনাকে রিডাইরেক্ট করা হচ্ছে...');
+        toast.error('নতুন টোকেন প্রয়োজন। ফেসবুকে লগইন করা হচ্ছে...');
         await triggerFacebookLogin();
         return;
       }
-      
-      const response = await fetch(`https://graph.facebook.com/v19.0/me/accounts?access_token=${providerToken}`);
+
+      // ✅ Edge Function-এর মাধ্যমে Long-Lived Token — FACEBOOK_APP_ID ও APP_SECRET Supabase Secrets-এ
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://otvzexarrpuaewjjdxna.supabase.co';
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/fb-token-exchange`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${anonKey}`,
+        },
+        body: JSON.stringify({ provider_token: providerToken }),
+      });
+
       const data = await response.json();
-      
-      if (data.error) {
+
+      if (!response.ok || data.error) {
+        const errMsg = data.error || 'Token exchange failed';
         if (
-          data.error.message.includes('OAuthException') || 
-          data.error.message.includes('authorized application') || 
-          data.error.message.includes('validating access token') || 
-          data.error.message.includes('expired')
+          errMsg.toLowerCase().includes('expired') ||
+          errMsg.toLowerCase().includes('invalid') ||
+          errMsg.toLowerCase().includes('oauth')
         ) {
-          toast.error('আপনার সেশন এক্সপায়ার হয়েছে বা বাতিল টোকেন! আবার লগইন করা হচ্ছে...');
+          toast.error('সেশন এক্সপায়ার হয়েছে! পুনরায় লগইন করা হচ্ছে...');
           await triggerFacebookLogin();
           return;
         }
-        throw new Error(data.error.message || 'Graph API Error');
+        throw new Error(errMsg);
       }
-      
-      setFbPages(data.data || []);
-      if (data.data?.length === 0) {
-        toast.error('আপনার অ্যাকাউন্টে কোনো ফেসবুক পেজ পাওয়া যায়নি।');
+
+      const pages: FacebookPage[] = data.pages ?? [];
+      setFbPages(pages);
+
+      if (pages.length === 0) {
+        toast.error('আপনার অ্যাকাউন্টে কোনো ফেসবুক পেজ পাওয়া যায়নি।');
       } else {
-        toast.success(`✅ ${data.data.length} টি পেজ পাওয়া গেছে!`);
+        toast.success(`✅ ${pages.length} টি পেজ পাওয়া গেছে! (Long-Lived Token সহ)`);
       }
     } catch (err: any) {
       console.error('FB Fetch Error:', err);
-      toast.error('পেজ আনতে সমস্যা হয়েছে: ' + err.message);
+      toast.error('পেজ আনতে সমস্যা হয়েছে: ' + err.message);
     } finally {
       setIsFetchingPages(false);
     }
@@ -190,6 +204,92 @@ export default function IntegrationsPage() {
   return (
     <DashboardLayout title="ইন্টিগ্রেশন ও API" subtitle="আপনার স্টোর বা ফেসবুক পেজের সাথে EngazeUp কানেক্ট করুন">
       <div className="space-y-6 mt-6">
+
+        {/* ── ✨ HERO: Facebook Page Connection ── */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#1877F2] via-[#0d5fd4] to-[#0a4bb5] p-6 shadow-xl text-white">
+          {/* Decorative circles */}
+          <div className="absolute -top-8 -right-8 w-40 h-40 bg-white/10 rounded-full pointer-events-none" />
+          <div className="absolute -bottom-6 -left-6 w-28 h-28 bg-white/5 rounded-full pointer-events-none" />
+
+          <div className="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0 shadow-lg">
+                <FacebookIcon className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-xl font-extrabold">Facebook Page AI অটোমেশন</h2>
+                  <span className="text-xs font-bold bg-yellow-400 text-yellow-900 px-2 py-0.5 rounded-full">Recommended</span>
+                </div>
+                <p className="text-blue-100 text-sm mt-1">
+                  {connectedFbPage
+                    ? `✅ কানেক্টেড: ${connectedFbPage.name}`
+                    : 'আপনার পেজ কানেক্ট করুন — AI অটোমেটিক্যালি ইনবক্স ম্যানেজ করবে!'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+              {connectedFbPage ? (
+                <>
+                  <span className="flex items-center gap-2 bg-white/20 backdrop-blur px-4 py-2.5 rounded-xl font-bold text-sm border border-white/30">
+                    <CheckCircle2 className="w-4 h-4 text-green-300" />
+                    {connectedFbPage.name}
+                  </span>
+                  <button
+                    onClick={fetchFacebookPages}
+                    disabled={isFetchingPages}
+                    className="flex items-center justify-center gap-2 bg-white/20 hover:bg-white/30 backdrop-blur px-5 py-2.5 rounded-xl font-bold text-sm transition border border-white/30"
+                  >
+                    {isFetchingPages ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    পেজ পরিবর্তন করুন
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={fetchFacebookPages}
+                  disabled={isFetchingPages}
+                  className="flex items-center justify-center gap-2 bg-white text-[#1877F2] font-extrabold px-6 py-3 rounded-xl hover:bg-blue-50 transition shadow-lg w-full sm:w-auto text-sm"
+                >
+                  {isFetchingPages ? <Loader2 className="w-4 h-4 animate-spin text-[#1877F2]" /> : <FacebookIcon className="w-4 h-4" />}
+                  Continue with Facebook
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Page selector inside the hero card */}
+          {fbPages.length > 0 && (
+            <div className="relative z-10 mt-5 bg-white/10 backdrop-blur border border-white/20 rounded-xl p-4 space-y-3">
+              <label className="block text-sm font-bold text-blue-100">কোন পেজে AI কানেক্ট করবেন?</label>
+              <select
+                value={selectedPageId}
+                onChange={(e) => setSelectedPageId(e.target.value)}
+                className="w-full p-3 bg-white/90 text-gray-800 border border-white/30 rounded-xl font-en text-sm outline-none focus:ring-2 focus:ring-white/50"
+              >
+                <option value="" disabled>একটি পেজ সিলেক্ট করুন</option>
+                {fbPages.map(page => (
+                  <option key={page.id} value={page.id}>{page.name} ({page.category})</option>
+                ))}
+              </select>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleConnectFbPage}
+                  disabled={!selectedPageId || isSavingKeys}
+                  className="flex-1 flex justify-center items-center gap-2 bg-white text-[#1877F2] font-extrabold px-5 py-2.5 rounded-xl hover:bg-blue-50 transition disabled:opacity-60"
+                >
+                  {isSavingKeys ? <><Loader2 className="w-4 h-4 animate-spin" /> কানেক্ট হচ্ছে...</> : '✅ Confirm & Connect AI'}
+                </button>
+                <button
+                  onClick={() => setFbPages([])}
+                  className="px-5 py-2.5 rounded-xl font-bold bg-white/10 hover:bg-white/20 transition border border-white/30 text-sm"
+                >
+                  বাতিল
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* ── Steadfast API Integration ── */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
