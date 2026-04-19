@@ -231,6 +231,7 @@ export default function CustomerDirectory() {
               </tbody>
             </table>
           </div>
+        </div>
         )}
       </div>
 
