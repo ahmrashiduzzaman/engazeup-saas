@@ -15,6 +15,42 @@ export default function OrderList() {
   const [selectedCourier, setSelectedCourier] = useState<string>('Steadfast');
   const [isBulkSending, setIsBulkSending] = useState(false);
 
+  // Dual Scrollbar refs
+  const topScrollRef = React.useRef<HTMLDivElement>(null);
+  const tableScrollRef = React.useRef<HTMLDivElement>(null);
+  const tableContentRef = React.useRef<HTMLTableElement>(null);
+  const [tableWidth, setTableWidth] = useState<number>(1000);
+  const isSyncingLeft = React.useRef(false);
+
+  useEffect(() => {
+    const updateWidth = () => {
+      if (tableContentRef.current) {
+        setTableWidth(tableContentRef.current.scrollWidth);
+      }
+    };
+    updateWidth();
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, [orders]);
+
+  const handleTopScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (isSyncingLeft.current) return;
+    if (tableScrollRef.current) {
+      isSyncingLeft.current = true;
+      tableScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+      setTimeout(() => { isSyncingLeft.current = false; }, 10);
+    }
+  };
+
+  const handleBottomScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    if (isSyncingLeft.current) return;
+    if (topScrollRef.current) {
+      isSyncingLeft.current = true;
+      topScrollRef.current.scrollLeft = e.currentTarget.scrollLeft;
+      setTimeout(() => { isSyncingLeft.current = false; }, 10);
+    }
+  };
+
   const fetchOrders = async () => {
     if (!user) return;
     setIsLoading(true);
@@ -162,10 +198,25 @@ export default function OrderList() {
                 </div>
               </div>
             )}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse whitespace-nowrap text-sm font-en">
-                <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
-                  <tr>
+            <div className="border-t border-gray-100 mt-4">
+              {/* Top Horizontal Scrollbar */}
+              <div 
+                ref={topScrollRef} 
+                onScroll={handleTopScroll} 
+                className="overflow-x-auto w-full mb-3"
+              >
+                <div style={{ width: `${tableWidth}px`, height: '1px' }}></div>
+              </div>
+
+              <div className="relative w-full overflow-hidden border rounded-lg">
+                <div 
+                  ref={tableScrollRef} 
+                  onScroll={handleBottomScroll}
+                  className="max-h-[calc(100vh-250px)] overflow-y-auto overflow-x-auto w-full custom-scrollbar"
+                >
+                  <table ref={tableContentRef} className="w-full text-left border-collapse whitespace-nowrap text-sm font-en">
+                    <thead className="sticky top-0 z-20 bg-white shadow-sm border-b-2 border-gray-200 text-gray-700">
+                      <tr>
                     <th className="p-4 w-12 text-center">
                       <input 
                         type="checkbox" 
@@ -247,7 +298,9 @@ export default function OrderList() {
                 ))}
               </tbody>
             </table>
-          </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
