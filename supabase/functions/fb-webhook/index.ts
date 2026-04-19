@@ -70,7 +70,7 @@ serve(async (req) => {
             console.error(`[ERROR] fb_page_access_token is empty for shop=${shopId}`);
           }
 
-          // ── B. Gemini দিয়ে তথ্য বের করা (fail হলেও বাকি কাজ চলবে) ──
+          // ── B. Gemini দিয়ে তথ্য বের করা ──────────────────────────────────
           let cleanJson: any = { name: null, phone: null, address: null };
           try {
             const aiResponse = await fetch(
@@ -81,18 +81,40 @@ serve(async (req) => {
                 body: JSON.stringify({
                   contents: [{
                     parts: [{
-                      text: `Extract JSON with keys (name, phone, address) from this message: "${incomingText}". If a field is not found, set it to null. Return ONLY raw JSON, no markdown.`
+                      text: `Extract JSON with keys (name, phone, address) from this message: "${incomingText}". If a field is not found, set it to null. Return ONLY raw JSON, no markdown, no explanation.`
                     }]
                   }]
                 })
               }
             );
             const aiData = await aiResponse.json();
-            const rawResult = aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
-            cleanJson = JSON.parse(rawResult.replace(/```json|```/g, '').trim());
-            console.log(`[GEMINI] Extracted: ${JSON.stringify(cleanJson)}`);
+            const rawResult: string = aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+            // ── Gemini response sanitizer ───────────────────────────────────
+            // Step 1: markdown fence সরাও  (```json ... ``` বা ``` ... ```)
+            let sanitized = rawResult
+              .replace(/```json\s*/gi, '')
+              .replace(/```\s*/g, '')
+              .trim();
+
+            // Step 2: যদি Gemini JSON-এর আগে/পরে prose text দেয়,
+            //         প্রথম valid JSON object টুকু extract করো
+            const jsonMatch = sanitized.match(/\{[\s\S]*?\}/);
+            if (jsonMatch) {
+              sanitized = jsonMatch[0];
+            }
+
+            // Step 3: parse করো
+            if (sanitized) {
+              cleanJson = JSON.parse(sanitized);
+              console.log(`[GEMINI] Extracted: ${JSON.stringify(cleanJson)}`);
+            } else {
+              console.warn('[GEMINI] Empty response after sanitize. Using defaults.');
+            }
           } catch (geminiErr: any) {
-            console.error('[ERROR] Gemini failed:', geminiErr.message);
+            console.error('[ERROR] Gemini parse failed:', geminiErr.message);
+            // Fallback: cleanJson stays as { name: null, phone: null, address: null }
+            // Webhook continues — reply পাঠানো হবে, order insert হবে না
           }
 
           let replyText = `আপনার মেসেজটি পেয়েছি। আমাদের প্রতিনিধি শীঘ্রই যোগাযোগ করবেন।`;
@@ -108,7 +130,7 @@ serve(async (req) => {
               phone: cleanJson.phone,
               is_deleted: false,
               total_orders: 1
-            }, { onConflict: 'phone' });
+            }, { onConflict: 'shop_id,phone' });
             if (custError) console.error('[ERROR] Customer upsert:', JSON.stringify(custError));
             else console.log('[INFO] Customer saved.');
 
