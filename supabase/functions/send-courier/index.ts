@@ -41,6 +41,19 @@ serve(async (req) => {
       throw new Error('Orders not found')
     }
 
+    const uniqueShopIds = [...new Set(orders.map(o => o.shop_id).filter(Boolean))]
+    
+    const { data: shops, error: shopsError } = await supabase
+      .from('shops')
+      .select('id, steadfast_api_key, steadfast_api_secret')
+      .in('id', uniqueShopIds)
+
+    if (shopsError) {
+      console.warn('[WARN] Failed to fetch shops for API keys:', shopsError.message)
+    }
+
+    const shopsMap = new Map((shops || []).map(s => [s.id, s]))
+
     const results = []
 
     // 2. Loop through orders and push to the correct courier API
@@ -87,8 +100,9 @@ serve(async (req) => {
         }
 
       } else if (courier === 'Steadfast') {
-        const sfApiKey = Deno.env.get('STEADFAST_API_KEY') ?? ''
-        const sfSecretKey = Deno.env.get('STEADFAST_SECRET_KEY') ?? ''
+        const shopData = shopsMap.get(order.shop_id)
+        const sfApiKey = shopData?.steadfast_api_key || Deno.env.get('STEADFAST_API_KEY') || ''
+        const sfSecretKey = shopData?.steadfast_api_secret || Deno.env.get('STEADFAST_SECRET_KEY') || ''
 
         if (!sfApiKey || !sfSecretKey) {
           apiErrorMessage = 'Steadfast credentials missing'

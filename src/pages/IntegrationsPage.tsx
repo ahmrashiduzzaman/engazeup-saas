@@ -37,7 +37,7 @@ export default function IntegrationsPage() {
   const [connectedFbPage, setConnectedFbPage] = useState<{id: string, name: string} | null>(null);
   const [selectedPageId, setSelectedPageId] = useState('');
 
-  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL || 'https://your-project.supabase.co'}/rest/v1/orders`;
+  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL || 'https://otvzexarrpuaewjjdxna.supabase.co'}/functions/v1/woo-webhook?shop_id=${user?.id || 'YOUR_SHOP_ID'}`;
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
   useEffect(() => {
@@ -347,7 +347,7 @@ export default function IntegrationsPage() {
             {[
               { icon: <LinkIcon className="w-6 h-6" />, color: 'bg-purple-50 text-purple-600', title: 'WooCommerce', body: 'WordPress Dashboard → Settings → Advanced → Webhooks → Topic: Order Created → webhook URL পেস্ট করুন।' },
               { icon: <MessageCircle className="w-6 h-6" />, color: 'bg-blue-50 text-blue-600', title: 'ManyChat / Facebook', body: 'ফ্লো-বিল্ডারে External Request ব্লক যুক্ত করুন। POST request করুন webhook URL-এ, Header-এ API Key দিন।' },
-              { icon: <Code className="w-6 h-6" />, color: 'bg-gray-50 text-gray-600', title: 'Custom Website', body: `ব্যাকএন্ড থেকে webhook URL-এ POST করুন। Headers-এ apikey ও Authorization: Bearer [key] দিন। Body-তে shop_id: "${user?.id}" রাখুন।` },
+              { icon: <Code className="w-6 h-6" />, color: 'bg-gray-50 text-gray-600', title: 'Custom Website', body: `ব্যাকএন্ড থেকে webhook URL-এ POST করুন। Headers-এ কোনো API Key-এর প্রয়োজন নেই, শুধু URL-টি ব্যবহার করলেই অটোমেটিক আপনার পে-লোড সেভ হবে।` },
             ].map((g, i) => (
               <div key={i} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition">
                 <div className={`w-12 h-12 ${g.color} rounded-xl flex items-center justify-center mb-4`}>{g.icon}</div>

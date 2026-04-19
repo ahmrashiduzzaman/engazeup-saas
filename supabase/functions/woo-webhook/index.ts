@@ -1,14 +1,17 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-
-const SHOP_ID = 'e00bc024-f025-42b3-923b-626fff0c9c4d';
-
 serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
   }
 
   try {
+    const url = new URL(req.url);
+    const shopId = url.searchParams.get('shop_id');
+    if (!shopId) {
+      return new Response('Missing shop_id in query parameters', { status: 400 });
+    }
+
     const payload = await req.json();
 
     // WooCommerce Webhook payload usually has id and billing/shipping info
@@ -84,7 +87,7 @@ serve(async (req) => {
 
       // Optional: Upsert customer logic could be added here similar to fb-webhook
       await supabase.from('customers').upsert({
-        shop_id: 'e00bc024-f025-42b3-923b-626fff0c9c4d',
+        shop_id: shopId,
         name: customerName,
         phone: phone,
         is_deleted: false,
@@ -93,7 +96,7 @@ serve(async (req) => {
 
       // Insert new order
       const newOrderData = {
-        shop_id: 'e00bc024-f025-42b3-923b-626fff0c9c4d',
+        shop_id: shopId,
         customer_name: customerName,
         phone_number: phone,
         address: address,
