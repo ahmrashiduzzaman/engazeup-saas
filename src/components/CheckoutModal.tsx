@@ -14,8 +14,10 @@ interface CheckoutModalProps {
   description: string; // e.g. "Growth Plan - 1 Month" or "1,000 SMS Credits"
 }
 
-const BKASH_NUMBER = '017XXXXXXXX';   // ← replace with your real number
-const NAGAD_NUMBER = '017XXXXXXXX';   // ← replace with your real number
+// ── পেমেন্ট রিসিভার নম্বর — এখানে পরিবর্তন করুন ──
+const RECEIVER_PHONE_NUMBER = '01911925901';
+const BKASH_NUMBER = RECEIVER_PHONE_NUMBER;
+const NAGAD_NUMBER = RECEIVER_PHONE_NUMBER;
 
 export default function CheckoutModal({ isOpen, onClose, purpose, amount, description }: CheckoutModalProps) {
   const { user } = useAuth();
@@ -133,8 +135,7 @@ export default function CheckoutModal({ isOpen, onClose, purpose, amount, descri
             <ol className={`text-sm font-medium space-y-2.5 list-none ${paymentMethod === 'bkash' ? 'text-pink-900' : 'text-orange-900'}`}>
               <li className="flex gap-2 items-start">
                 <span className={`font-bold w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5 ${paymentMethod === 'bkash' ? 'bg-pink-200 text-pink-800' : 'bg-orange-200 text-orange-800'}`}>১</span>
-                আপনার {paymentMethod === 'bkash' ? 'bKash' : 'Nagad'} অ্যাপ ওপেন করুন →{' '}
-                <strong>"Send Money"</strong> সিলেক্ট করুন।
+                <span>আপনার {paymentMethod === 'bkash' ? 'bKash' : 'Nagad'} অ্যাপ ওপেন করুন → <strong>"Send Money"</strong> সিলেক্ট করুন।</span>
               </li>
               <li className="flex gap-2 items-start">
                 <span className={`font-bold w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 mt-0.5 ${paymentMethod === 'bkash' ? 'bg-pink-200 text-pink-800' : 'bg-orange-200 text-orange-800'}`}>২</span>
