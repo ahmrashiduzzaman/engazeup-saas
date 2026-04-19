@@ -87,9 +87,35 @@ serve(async (req) => {
                 })
               }
             );
+
+            // ── Full Gemini API diagnostics ─────────────────────────────────
             const aiData = await aiResponse.json();
-            const rawResult: string = (aiData.candidates?.[0]?.content?.parts?.[0]?.text ?? '').trim();
-            console.log(`[GEMINI] Raw response: ${rawResult}`);
+            console.log(`[GEMINI] HTTP Status: ${aiResponse.status}`);
+
+            // API-level error (wrong key, quota exceeded, etc.)
+            if (aiData.error) {
+              console.error(`[GEMINI] API Error ${aiData.error.code}: ${aiData.error.message} (${aiData.error.status})`);
+              throw new Error(`Gemini API error: ${aiData.error.message}`);
+            }
+
+            // Safety filter block
+            if (aiData.promptFeedback?.blockReason) {
+              console.warn(`[GEMINI] Blocked by safety filter: ${aiData.promptFeedback.blockReason}`);
+            }
+
+            // No candidates returned
+            if (!aiData.candidates || aiData.candidates.length === 0) {
+              console.warn(`[GEMINI] No candidates returned. Full response: ${JSON.stringify(aiData)}`);
+              throw new Error('Gemini returned no candidates');
+            }
+
+            const rawResult: string = (aiData.candidates[0]?.content?.parts?.[0]?.text ?? '').trim();
+            console.log(`[GEMINI] Raw text: "${rawResult}"`);
+
+            if (!rawResult) {
+              console.warn('[GEMINI] Candidate text is empty. finishReason:', aiData.candidates[0]?.finishReason);
+              throw new Error('Empty text in candidate');
+            }
 
             // Layer 1: markdown fence সরিয়ে direct parse (best case)
             try {
@@ -111,8 +137,9 @@ serve(async (req) => {
               }
             }
           } catch (geminiErr: any) {
-            console.error('[ERROR] Gemini API call failed:', geminiErr.message);
+            console.error('[ERROR] Gemini failed:', geminiErr.message);
           }
+
 
 
           let replyText = `আপনার মেসেজটি পেয়েছি। আমাদের প্রতিনিধি শীঘ্রই যোগাযোগ করবেন।`;
