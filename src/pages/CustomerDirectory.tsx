@@ -1,10 +1,98 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
-import { MessageCircle, Trash2, X, Send, Loader2, Users } from 'lucide-react';
+import { MessageCircle, Trash2, X, Send, Loader2, Users, Gift, Star, Sparkles } from 'lucide-react';
 
+// ── Constants ──────────────────────────────────────────────────────────────────
+const LS_KEY = 'has_seen_customer_list_reward'; // localStorage flag
+const REWARD_DAYS = 5;                            // পুরস্কার: ৫ দিন ফ্রি
+
+// ── Reward Popup Component ─────────────────────────────────────────────────────
+function RewardPopup({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div
+        className="bg-white rounded-3xl w-full max-w-sm shadow-2xl overflow-hidden relative"
+        style={{ animation: 'rewardPopIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}
+      >
+        <style>{`
+          @keyframes rewardPopIn {
+            from { opacity: 0; transform: scale(0.7) translateY(30px); }
+            to   { opacity: 1; transform: scale(1) translateY(0); }
+          }
+          @keyframes floatStar {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50%       { transform: translateY(-8px) rotate(15deg); }
+          }
+        `}</style>
+
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-3 right-3 z-10 text-white/60 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl p-1.5 transition"
+          aria-label="বন্ধ করুন"
+        >
+          <X size={18} />
+        </button>
+
+        {/* Hero gradient */}
+        <div
+          className="relative px-6 pt-8 pb-6 text-white text-center overflow-hidden"
+          style={{ background: 'linear-gradient(135deg, #7C3AED 0%, #4F46E5 50%, #0F6E56 100%)' }}
+        >
+          {/* Floating stars decoration */}
+          <div className="absolute top-4 left-6 text-yellow-300 text-xl opacity-80" style={{ animation: 'floatStar 3s ease-in-out infinite' }}>⭐</div>
+          <div className="absolute top-8 right-8 text-yellow-300 text-sm opacity-60" style={{ animation: 'floatStar 2.5s ease-in-out infinite 0.5s' }}>✨</div>
+          <div className="absolute bottom-4 left-10 text-yellow-300 text-sm opacity-60" style={{ animation: 'floatStar 3.5s ease-in-out infinite 1s' }}>⭐</div>
+
+          {/* Icon */}
+          <div className="relative z-10 mx-auto mb-3 w-16 h-16 bg-white/20 rounded-2xl flex items-center justify-center shadow-lg ring-4 ring-white/20">
+            <Gift className="w-8 h-8 text-yellow-300" />
+          </div>
+
+          <div className="relative z-10">
+            <p className="text-white/80 text-xs font-bold uppercase tracking-widest mb-1">🎉 অভিনন্দন!</p>
+            <h2 className="text-2xl font-extrabold leading-tight mb-1">
+              +{REWARD_DAYS} দিন ফ্রি
+            </h2>
+            <p className="text-white/90 text-sm font-medium">
+              আনলক হয়েছে আপনার একাউন্টে!
+            </p>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5 space-y-4">
+          <div className="bg-purple-50 border border-purple-100 rounded-2xl px-4 py-3 flex items-start gap-3">
+            <Star className="w-5 h-5 text-purple-500 shrink-0 mt-0.5" />
+            <p className="text-sm text-gray-700 font-medium leading-relaxed">
+              আপনি প্রথমবার <span className="font-extrabold text-purple-600">Bulk SMS</span> পাঠানো সম্পন্ন করেছেন এবং কাস্টমার লিস্ট তৈরি করেছেন।
+              এই মাইলস্টোনের জন্য আপনার সাবস্ক্রিপশনে{' '}
+              <span className="font-extrabold text-[#0F6E56]">{REWARD_DAYS} দিন বোনাস</span> যোগ করা হয়েছে!
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-gray-400">
+            <Sparkles className="w-4 h-4 text-yellow-400" />
+            <span>এই পুরস্কার শুধুমাত্র একবার দেওয়া হয়</span>
+          </div>
+
+          <button
+            onClick={onClose}
+            className="w-full py-3.5 rounded-xl font-extrabold text-white transition-all active:scale-[0.97]"
+            style={{ background: 'linear-gradient(135deg, #7C3AED, #4F46E5)' }}
+          >
+            দারুণ! ধন্যবাদ 🎉
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────────
 export default function CustomerDirectory() {
   const { user } = useAuth();
   const [customers, setCustomers] = useState<any[]>([]);
@@ -15,6 +103,9 @@ export default function CustomerDirectory() {
   const [showSmsModal, setShowSmsModal] = useState(false);
   const [smsMessage, setSmsMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
+
+  // Reward popup state
+  const [showRewardPopup, setShowRewardPopup] = useState(false);
 
   // Dual Scrollbar refs
   const topScrollRef = React.useRef<HTMLDivElement>(null);
@@ -52,7 +143,7 @@ export default function CustomerDirectory() {
     }
   };
 
-  const fetchCustomers = async () => {
+  const fetchCustomers = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
     setFetchError(null);
@@ -70,14 +161,14 @@ export default function CustomerDirectory() {
       setCustomers(data || []);
     }
     setIsLoading(false);
-  };
+  }, [user]);
 
   useEffect(() => {
     fetchCustomers();
-  }, [user]);
+  }, [fetchCustomers]);
 
   const handleDelete = async (id: string) => {
-    if (window.confirm("Are you sure you want to delete this customer?")) {
+    if (window.confirm('এই কাস্টমারকে মুছে ফেলবেন?')) {
       const { error } = await supabase
         .from('customers')
         .update({ is_deleted: true })
@@ -87,15 +178,78 @@ export default function CustomerDirectory() {
     }
   };
 
+  // ── Reward Logic ─────────────────────────────────────────────────────────────
+  /**
+   * Called ONLY after a successful Bulk SMS send.
+   * Guard order:
+   *   1. localStorage  → instant check (no network)
+   *   2. DB flag       → authoritative check (prevents API replay attacks)
+   *   3. Show popup    → update both guards simultaneously
+   */
+  const triggerRewardIfEligible = useCallback(async () => {
+    if (!user) return;
+
+    // Guard 1: localStorage (fast path — no DB round-trip needed if already claimed)
+    if (localStorage.getItem(LS_KEY) === 'true') {
+      console.log('[REWARD] Already seen (localStorage). Skipping.');
+      return;
+    }
+
+    try {
+      // Guard 2: DB check (authoritative source of truth for billing)
+      const { data: shopRow, error } = await supabase
+        .from('shops')
+        .select('reward_customer_list_claimed')
+        .eq('id', user.id)
+        .single();
+
+      if (error) {
+        // Column may not exist yet on older DBs — silently skip, don't crash
+        console.warn('[REWARD] Could not check DB flag:', error.message);
+        return;
+      }
+
+      if (shopRow?.reward_customer_list_claimed === true) {
+        // Already claimed in DB — sync localStorage and bail
+        localStorage.setItem(LS_KEY, 'true');
+        console.log('[REWARD] Already claimed (DB). Skipping.');
+        return;
+      }
+
+      // ✅ Both guards passed — show the popup
+      setShowRewardPopup(true);
+
+      // Persist to DB to prevent re-claim (billing protection)
+      const { error: updateErr } = await supabase
+        .from('shops')
+        .update({ reward_customer_list_claimed: true })
+        .eq('id', user.id);
+
+      if (updateErr) {
+        console.error('[REWARD] Failed to persist DB flag:', updateErr.message);
+      } else {
+        // Sync localStorage only after DB confirms
+        localStorage.setItem(LS_KEY, 'true');
+        console.log('[REWARD] Reward claimed and persisted.');
+      }
+    } catch (err: any) {
+      console.warn('[REWARD] Unexpected error:', err.message);
+    }
+  }, [user]);
+
+  const handleCloseReward = () => {
+    setShowRewardPopup(false);
+    // localStorage already set in triggerRewardIfEligible
+  };
+
+  // ── SMS Send ─────────────────────────────────────────────────────────────────
   const handleSendSms = async () => {
     if (customers.length === 0) {
       toast.error('কোনো কাস্টমার নেই!');
       return;
     }
 
-    const phoneNumbers = customers
-      .map(c => c.phone)
-      .filter(Boolean);
+    const phoneNumbers = customers.map(c => c.phone).filter(Boolean);
 
     if (phoneNumbers.length === 0) {
       toast.error('কোনো ফোন নম্বর পাওয়া যায়নি!');
@@ -109,23 +263,19 @@ export default function CustomerDirectory() {
       const token = session?.access_token;
 
       if (!token) {
-        toast.error('সেশন পাওয়া যায়নি! দয়া করে লগআউট করে আবার লগইন করুন।');
+        toast.error('সেশন পাওয়া যায়নি! দয়া করে লগআউট করে আবার লগইন করুন।');
         setIsSending(false);
         return;
       }
 
-      // Use fetch for absolute control over headers
       const response = await fetch('https://otvzexarrpuaewjjdxna.supabase.co/functions/v1/bulk-sms', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90dnpleGFycnB1YWV3ampkeG5hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUzOTgyMzcsImV4cCI6MjA5MDk3NDIzN30.2SMR4Gt8SShEqzf2T448iPc8U_mQcv0yB51JXSN-ov8',
-          'Authorization': `Bearer ${token}`
+          'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          phoneNumbers,
-          message: smsMessage.trim()
-        })
+        body: JSON.stringify({ phoneNumbers, message: smsMessage.trim() }),
       });
 
       const responseText = await response.text();
@@ -134,11 +284,8 @@ export default function CustomerDirectory() {
       if (responseText && responseText.trim() !== '') {
         try {
           responseData = JSON.parse(responseText);
-        } catch (e) {
-          console.error("Non-JSON API Gateway Response:", responseText);
-          if (!response.ok) {
-            throw new Error(`API Error ${response.status}: ${responseText}`);
-          }
+        } catch {
+          if (!response.ok) throw new Error(`API Error ${response.status}: ${responseText}`);
         }
       }
 
@@ -149,6 +296,9 @@ export default function CustomerDirectory() {
       toast.success(`✅ ${responseData?.sent_to || phoneNumbers.length} জন কাস্টমারকে SMS পাঠানো হয়েছে!`);
       setShowSmsModal(false);
       setSmsMessage('');
+
+      // 🎁 Trigger reward popup only on SUCCESS — action-based, one-time
+      triggerRewardIfEligible();
 
     } catch (err: any) {
       console.error('Final SMS Dispatch Error:', err);
@@ -162,6 +312,7 @@ export default function CustomerDirectory() {
   const charCount = smsMessage.length;
   const smsPartCount = Math.ceil(charCount / MAX_SMS_LENGTH) || 1;
 
+  // ── Render ────────────────────────────────────────────────────────────────────
   return (
     <DashboardLayout title="কাস্টমার ডিরেক্টরি (CRM)" subtitle="আপনার কাস্টমার ডাটাবেস এবং Bulk SMS সিস্টেম">
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm mt-6">
@@ -193,60 +344,56 @@ export default function CustomerDirectory() {
         ) : (
           <div className="border-t border-gray-100">
             {/* Top Horizontal Scrollbar */}
-            <div 
-              ref={topScrollRef} 
-              onScroll={handleTopScroll} 
-              className="overflow-x-auto w-full mb-3"
-            >
-              <div style={{ width: `${tableWidth}px`, height: '1px' }}></div>
+            <div ref={topScrollRef} onScroll={handleTopScroll} className="overflow-x-auto w-full mb-3">
+              <div style={{ width: `${tableWidth}px`, height: '1px' }} />
             </div>
 
             <div className="relative w-full overflow-hidden border rounded-lg">
-              <div 
-                ref={tableScrollRef} 
+              <div
+                ref={tableScrollRef}
                 onScroll={handleBottomScroll}
                 className="max-h-[calc(100vh-250px)] overflow-y-auto overflow-x-auto w-full custom-scrollbar"
               >
                 <table ref={tableContentRef} className="w-full text-left border-collapse whitespace-nowrap text-sm font-en">
                   <thead className="sticky top-0 z-20 bg-white shadow-sm border-b-2 border-gray-200 text-gray-700">
-                  <tr>
-                  <th className="p-4 font-medium sticky left-0 z-30 bg-white shadow-[1px_0_0_#e2e8f0]">Customer ID</th>
-                  <th className="p-4 font-medium font-bengali">Name</th>
-                  <th className="p-4 font-medium">Phone Number</th>
-                  <th className="p-4 font-medium text-center">Total Orders</th>
-                  <th className="p-4 font-medium text-right">Total Spent</th>
-                  <th className="p-4 font-medium text-center">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {customers.length === 0 ? (
-                  <tr>
-                    <td colSpan={6} className="p-10 text-center text-gray-400">
-                      <p className="text-4xl mb-3">👤</p>
-                      <p className="font-bold text-gray-600 mb-1">কোনো কাস্টমার পাওয়া যায়নি</p>
-                      <p className="text-sm">নতুন পার্সেল এন্ট্রি করলে কাস্টমার অটোম্যাটিক্যালি যুক্ত হবে।</p>
-                    </td>
-                  </tr>
-                ) : customers.map((cust) => (
-                  <tr key={cust.id} className="group border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                    <td className="p-4 font-extrabold text-gray-900 sticky left-0 z-10 bg-white group-hover:bg-gray-50 shadow-[1px_0_0_#e2e8f0]">{String(cust.id).slice(0, 8).toUpperCase()}</td>
-                    <td className="p-4 font-bold text-gray-700 font-bengali">{cust.name}</td>
-                    <td className="p-4 text-gray-600 font-medium">{cust.phone}</td>
-                    <td className="p-4 text-center font-extrabold text-[#3B82F6]">{cust.total_orders}</td>
-                    <td className="p-4 text-right font-extrabold text-[#0F6E56]">৳ {Number(cust.total_spent).toLocaleString('en-IN')}</td>
-                    <td className="p-4 text-center">
-                      <button onClick={() => handleDelete(cust.id)} className="p-1.5 bg-red-50 rounded hover:bg-red-500 hover:text-white text-red-500 transition ml-auto" title="মুছে ফেলুন">
-                        <Trash2 size={16} />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    <tr>
+                      <th className="p-4 font-medium sticky left-0 z-30 bg-white shadow-[1px_0_0_#e2e8f0]">Customer ID</th>
+                      <th className="p-4 font-medium font-bengali">Name</th>
+                      <th className="p-4 font-medium">Phone Number</th>
+                      <th className="p-4 font-medium text-center">Total Orders</th>
+                      <th className="p-4 font-medium text-right">Total Spent</th>
+                      <th className="p-4 font-medium text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customers.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="p-10 text-center text-gray-400">
+                          <p className="text-4xl mb-3">👤</p>
+                          <p className="font-bold text-gray-600 mb-1">কোনো কাস্টমার পাওয়া যায়নি</p>
+                          <p className="text-sm">নতুন পার্সেল এন্ট্রি করলে কাস্টমার অটোম্যাটিক্যালি যুক্ত হবে।</p>
+                        </td>
+                      </tr>
+                    ) : customers.map((cust) => (
+                      <tr key={cust.id} className="group border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                        <td className="p-4 font-extrabold text-gray-900 sticky left-0 z-10 bg-white group-hover:bg-gray-50 shadow-[1px_0_0_#e2e8f0]">{String(cust.id).slice(0, 8).toUpperCase()}</td>
+                        <td className="p-4 font-bold text-gray-700 font-bengali">{cust.name}</td>
+                        <td className="p-4 text-gray-600 font-medium">{cust.phone}</td>
+                        <td className="p-4 text-center font-extrabold text-[#3B82F6]">{cust.total_orders}</td>
+                        <td className="p-4 text-right font-extrabold text-[#0F6E56]">৳ {Number(cust.total_spent).toLocaleString('en-IN')}</td>
+                        <td className="p-4 text-center">
+                          <button onClick={() => handleDelete(cust.id)} className="p-1.5 bg-red-50 rounded hover:bg-red-500 hover:text-white text-red-500 transition ml-auto" title="মুছে ফেলুন">
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
-      )}
+        )}
       </div>
 
       {/* ── BULK SMS MODAL ── */}
@@ -272,23 +419,18 @@ export default function CustomerDirectory() {
             </div>
 
             <div className="p-6 space-y-5">
-
               {/* Recipient summary */}
               <div className="flex items-center gap-3 bg-[#0F6E56]/5 border border-[#0F6E56]/20 rounded-xl px-4 py-3">
                 <Users className="w-5 h-5 text-[#0F6E56] shrink-0" />
                 <p className="text-sm font-bold text-gray-800">
                   <span className="text-[#0F6E56] text-base">{customers.length} জন</span> কাস্টমারকে SMS পাঠানো হবে
-                  <span className="text-gray-500 font-medium ml-1">
-                    ({customers.length} ক্রেডিট ব্যয় হবে)
-                  </span>
+                  <span className="text-gray-500 font-medium ml-1">({customers.length} ক্রেডিট ব্যয় হবে)</span>
                 </p>
               </div>
 
               {/* Message composer */}
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  মেসেজ লিখুন
-                </label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">মেসেজ লিখুন</label>
                 <textarea
                   value={smsMessage}
                   onChange={e => setSmsMessage(e.target.value)}
@@ -313,10 +455,10 @@ export default function CustomerDirectory() {
 
               {/* Compliance Warning */}
               <div className="bg-orange-50 text-amber-700 text-sm p-2 rounded-md border border-orange-200 mt-4 font-medium">
-                ⚠️ সতর্কতা (বিটিআরসি নিয়ম): প্রোমোশনাল এসএমএস অবশ্যই বাংলায় লিখতে হবে (শুধু সংখ্যা বা লিংক ইংরেজিতে দেওয়া যাবে), নিয়ম অমান্য করলে একাউন্ট সাসপেন্ড হতে পারে!
+                ⚠️ সতর্কতা (বিটিআরসি নিয়ম): প্রোমোশনাল এসএমএস অবশ্যই বাংলায় লিখতে হবে (শুধু সংখ্যা বা লিংক ইংরেজিতে দেওয়া যাবে), নিয়ম অমান্য করলে একাউন্ট সাসপেন্ড হতে পারে!
               </div>
 
-              {/* Warning if multi-part SMS */}
+              {/* Multi-part warning */}
               {smsPartCount > 1 && (
                 <div className="flex gap-2 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-xs text-amber-700 font-medium">
                   <span className="shrink-0">⚠️</span>
@@ -348,6 +490,10 @@ export default function CustomerDirectory() {
           </div>
         </div>
       )}
+
+      {/* ── REWARD POPUP — renders only when showRewardPopup === true ── */}
+      {showRewardPopup && <RewardPopup onClose={handleCloseReward} />}
+
     </DashboardLayout>
   );
 }
