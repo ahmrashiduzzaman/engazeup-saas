@@ -84,7 +84,7 @@ serve(async (req) => {
 
       // Optional: Upsert customer logic could be added here similar to fb-webhook
       await supabase.from('customers').upsert({
-        shop_id: SHOP_ID,
+        shop_id: 'e00bc024-f025-42b3-923b-626fff0c9c4d',
         name: customerName,
         phone: phone,
         is_deleted: false,
@@ -93,7 +93,7 @@ serve(async (req) => {
 
       // Insert new order
       const newOrderData = {
-        shop_id: SHOP_ID,
+        shop_id: 'e00bc024-f025-42b3-923b-626fff0c9c4d',
         customer_name: customerName,
         phone_number: phone,
         address: address,
