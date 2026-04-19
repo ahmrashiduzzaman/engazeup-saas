@@ -35,14 +35,22 @@ export default function FinanceView() {
             aggregated[courier] = { name: courier, received: 0, pending: 0, overdue: 0 };
           }
 
-          if (status === 'delivered') {
+          // ✅ Received: order Delivered অথবা payment Paid হলে
+          const paymentStatus = order.payment_status?.toLowerCase() || '';
+          const isReceived = status === 'delivered' || paymentStatus === 'paid';
+
+          if (isReceived) {
             aggregated[courier].received += cod;
             tReceived += cod;
-          } else if (status === 'pending' || status.includes('transit')) {
+          } else if (status === 'pending' || status.includes('transit') || status.includes('in_transit')) {
             aggregated[courier].pending += cod;
             tPending += cod;
-          } else if (status.includes('delay') || status.includes('hold')) {
+          } else if (status.includes('delay') || status.includes('hold') || status.includes('cancel')) {
             aggregated[courier].overdue += cod;
+          } else {
+            // fallback: other statuses count as pending
+            aggregated[courier].pending += cod;
+            tPending += cod;
           }
         });
 
@@ -77,7 +85,7 @@ export default function FinanceView() {
             <table className="w-full text-left border-collapse whitespace-nowrap text-sm font-en">
               <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
                 <tr>
-                  <th className="p-4 font-medium">Courier Partner</th>
+                  <th className="p-4 font-medium">Sales Channel / উৎস</th>
                   <th className="p-4 font-medium text-right">Received</th>
                   <th className="p-4 font-medium text-right">Pending</th>
                   <th className="p-4 font-medium text-right">Overdue</th>
