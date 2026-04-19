@@ -196,7 +196,7 @@ export default function CustomerDirectory() {
             <div 
               ref={topScrollRef} 
               onScroll={handleTopScroll} 
-              className="overflow-x-auto w-full"
+              className="overflow-x-auto w-full mb-3"
             >
               <div style={{ width: `${tableWidth}px`, height: '1px' }}></div>
             </div>
@@ -210,7 +210,7 @@ export default function CustomerDirectory() {
                 <table ref={tableContentRef} className="w-full text-left border-collapse whitespace-nowrap text-sm font-en">
                   <thead className="sticky top-0 z-20 bg-white shadow-sm border-b-2 border-gray-200 text-gray-700">
                   <tr>
-                  <th className="p-4 font-medium">Customer ID</th>
+                  <th className="p-4 font-medium sticky left-0 z-30 bg-white shadow-[1px_0_0_#e2e8f0]">Customer ID</th>
                   <th className="p-4 font-medium font-bengali">Name</th>
                   <th className="p-4 font-medium">Phone Number</th>
                   <th className="p-4 font-medium text-center">Total Orders</th>
@@ -228,8 +228,8 @@ export default function CustomerDirectory() {
                     </td>
                   </tr>
                 ) : customers.map((cust) => (
-                  <tr key={cust.id} className="border-b border-gray-50 hover:bg-gray-50 transition-colors">
-                    <td className="p-4 font-extrabold text-gray-900">{String(cust.id).slice(0, 8).toUpperCase()}</td>
+                  <tr key={cust.id} className="group border-b border-gray-50 hover:bg-gray-50 transition-colors">
+                    <td className="p-4 font-extrabold text-gray-900 sticky left-0 z-10 bg-white group-hover:bg-gray-50 shadow-[1px_0_0_#e2e8f0]">{String(cust.id).slice(0, 8).toUpperCase()}</td>
                     <td className="p-4 font-bold text-gray-700 font-bengali">{cust.name}</td>
                     <td className="p-4 text-gray-600 font-medium">{cust.phone}</td>
                     <td className="p-4 text-center font-extrabold text-[#3B82F6]">{cust.total_orders}</td>
