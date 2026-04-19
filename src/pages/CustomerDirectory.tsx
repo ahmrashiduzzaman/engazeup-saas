@@ -169,8 +169,8 @@ function ImportCsvModal({
           const { data, error } = await supabase
             .from('customers')
             .upsert(chunk, {
-              onConflict: 'phone',
-              ignoreDuplicates: true,   // ← skip existing phones silently
+              onConflict: 'shop_id,phone',  // ← per-shop unique: same phone in diff shops is OK
+              ignoreDuplicates: true,
             })
             .select('id');
 
