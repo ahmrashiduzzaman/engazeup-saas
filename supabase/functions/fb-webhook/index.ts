@@ -119,7 +119,7 @@ serve(async (req) => {
 
             // Layer 1: markdown fence সরিয়ে direct parse (best case)
             try {
-              const cleanText = rawResult
+              const cleanText = (rawResult || '')
                 .replace(/```json\s*/gi, '')
                 .replace(/```\s*/g, '')
                 .trim();
@@ -128,7 +128,7 @@ serve(async (req) => {
             } catch {
               // Layer 2: prose-এর মধ্যে { } খোঁজো — GREEDY so full JSON captured
               try {
-                const jsonMatch = rawResult.match(/\{[\s\S]*\}/);
+                const jsonMatch = (rawResult || '').match(/\{[\s\S]*\}/);
                 if (!jsonMatch) throw new Error('No JSON block found');
                 cleanJson = JSON.parse(jsonMatch[0]);
                 console.log(`[GEMINI] Layer2 OK: ${JSON.stringify(cleanJson)}`);
