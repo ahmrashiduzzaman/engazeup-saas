@@ -4,6 +4,16 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 // ── Webhook Verify Token (Facebook App Dashboard-এ সেট করতে হবে) ──
 const VERIFY_TOKEN = 'engazeup_secret';
 
+// Helper function to convert Bengali digits to English
+const convertBengaliToEnglishNumbers = (str: string | null | undefined): string => {
+  if (!str) return '';
+  const bengaliToEnglishMap: { [key: string]: string } = {
+    '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4',
+    '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9'
+  };
+  return str.replace(/[০-৯]/g, match => bengaliToEnglishMap[match]);
+};
+
 serve(async (req) => {
   const url = new URL(req.url);
 
@@ -71,7 +81,7 @@ serve(async (req) => {
           }
 
           // -- B. Gemini দিয়ে তথ্য বের করা
-          let cleanJson: any = { name: null, phone: null, address: null };
+          let cleanJson: any = { name: null, phone: null, address: null, cod_amount: 0 };
           try {
             const aiResponse = await fetch(
               `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`,
@@ -81,7 +91,7 @@ serve(async (req) => {
                 body: JSON.stringify({
                   contents: [{
                     parts: [{
-                      text: `Extract JSON with keys (name, phone, address) from this Bengali/English message: "${incomingText}". If a field is not found, set it to null. You MUST return ONLY a valid raw JSON object. Do not wrap it in markdown backticks. Do not add any conversational text before or after the JSON.`
+                      text: `Extract JSON with keys (name, phone, address, cod_amount) from this Bengali/English message: "${incomingText}". 'cod_amount' should be a number (extract any price or amount mentioned). If a field is not found, set it to null. You MUST return ONLY a valid raw JSON object. Do not wrap it in markdown backticks. Do not add any conversational text before or after the JSON.`
                     }]
                   }]
                 })
@@ -146,13 +156,16 @@ serve(async (req) => {
 
           // ── C. ফোন নম্বর পেলে DB-তে সেভ করো ──
           if (cleanJson?.phone) {
-            console.log(`[DATA] Saving order & customer. shop_id=${shopId}, phone=${cleanJson.phone}`);
+            const safePhone = convertBengaliToEnglishNumbers(cleanJson.phone);
+            const safeCodAmount = typeof cleanJson.cod_amount === 'number' ? cleanJson.cod_amount : (parseInt(cleanJson.cod_amount) || 0);
+
+            console.log(`[DATA] Saving order & customer. shop_id=${shopId}, phone=${safePhone}, cod=${safeCodAmount}`);
 
             // Customer upsert (shop-specific)
             const { error: custError } = await supabase.from('customers').upsert({
               shop_id: shopId,
               name: cleanJson.name || 'Customer',
-              phone: cleanJson.phone,
+              phone: safePhone,
               is_deleted: false,
               total_orders: 1
             }, { onConflict: 'shop_id,phone' });
@@ -163,11 +176,12 @@ serve(async (req) => {
             const { error: orderError } = await supabase.from('orders').insert({
               shop_id: shopId,
               customer_name: cleanJson.name || 'Customer',
-              phone_number: cleanJson.phone,
+              phone_number: safePhone,
               address: cleanJson.address || 'Unknown',
               source: 'Facebook AI',
               status: 'Pending',
-              cod_amount: 0
+              cod_amount: safeCodAmount
+
             });
             if (orderError) console.error('[ERROR] Order insert:', JSON.stringify(orderError));
             else console.log('[INFO] Order saved.');
