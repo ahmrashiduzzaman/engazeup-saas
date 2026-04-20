@@ -4,14 +4,17 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
 // ── Webhook Verify Token (Facebook App Dashboard-এ সেট করতে হবে) ──
 const VERIFY_TOKEN = 'engazeup_secret';
 
-// Helper function to convert Bengali digits to English
-const convertBengaliToEnglishNumbers = (str: string | null | undefined): string => {
+// Helper function to convert Bengali digits to English (Fully robust)
+const convertBengaliToEnglishNumbers = (val: any): string => {
+  if (val === undefined || val === null) return '';
+  const str = String(val); // Safety: if val is number, make it string
   if (!str) return '';
+  
   const bengaliToEnglishMap: { [key: string]: string } = {
     '০': '0', '১': '1', '২': '2', '৩': '3', '৪': '4',
     '৫': '5', '৬': '6', '৭': '7', '৮': '8', '৯': '9'
   };
-  return str.replace(/[০-৯]/g, match => bengaliToEnglishMap[match]);
+  return str.replace?.(/[০-৯]/g, match => bengaliToEnglishMap[match]) || str;
 };
 
 serve(async (req) => {
@@ -129,10 +132,10 @@ serve(async (req) => {
 
             // Layer 1: markdown fence সরিয়ে direct parse (best case)
             try {
-              const cleanText = (rawResult || '')
-                .replace(/```json\s*/gi, '')
-                .replace(/```\s*/g, '')
-                .trim();
+              const cleanText = String(rawResult || '')
+                ?.replace?.(/```json\s*/gi, '')
+                ?.replace?.(/```\s*/g, '')
+                ?.trim();
               cleanJson = JSON.parse(cleanText);
               console.log(`[GEMINI] Layer1 OK: ${JSON.stringify(cleanJson)}`);
             } catch {
