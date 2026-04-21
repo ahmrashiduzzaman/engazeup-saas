@@ -9,3 +9,8 @@ entrypoint = "./functions/send-courier/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/send-courier/*.html" ]
+
+[functions.fb-token-exchange]
+enabled = true
+verify_jwt = false
+
