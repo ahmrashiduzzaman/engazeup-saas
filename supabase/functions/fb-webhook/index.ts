@@ -45,7 +45,11 @@ serve(async (req) => {
     // Background-এ প্রসেস করো
     (async () => {
       try {
-        const body = await req.json();
+        console.log('🔥 WEBHOOK HIT! Request incoming...');
+        const rawBody = await req.text();
+        console.log('📦 RAW PAYLOAD:', rawBody);
+        
+        const body = JSON.parse(rawBody);
         if (body.object !== 'page') return;
 
         const supabase = createClient(
