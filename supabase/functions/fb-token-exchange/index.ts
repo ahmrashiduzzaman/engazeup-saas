@@ -42,10 +42,33 @@ serve(async (req) => {
     const exchangeUrl = `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${APP_ID}&client_secret=${APP_SECRET}&fb_exchange_token=${provider_token}`;
 
     const exchangeRes = await fetch(exchangeUrl);
-    const exchangeData = await exchangeRes.json();
+    
+    // We clone the response so we can read the text first for debugging, 
+    // without consuming the body from the original response stream.
+    const responseText = await exchangeRes.clone().text();
+    
+    if (!exchangeRes.ok) {
+      console.error(`[ERROR] Token exchange failed with status: ${exchangeRes.status} ${exchangeRes.statusText}`);
+      console.error(`[ERROR] Raw API Response:`, responseText);
+      return new Response(
+        JSON.stringify({ error: `Token exchange failed: API returned status ${exchangeRes.status}`, details: responseText }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    let exchangeData;
+    try {
+      exchangeData = await exchangeRes.json();
+    } catch (e) {
+      console.error('[ERROR] Failed to parse token exchange response as JSON:', responseText);
+      return new Response(
+        JSON.stringify({ error: `Token exchange failed: Invalid JSON response.`, details: responseText }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (exchangeData.error) {
-      console.error('[ERROR] Token exchange failed:', JSON.stringify(exchangeData.error));
+      console.error('[ERROR] Token exchange returned JSON error:', JSON.stringify(exchangeData.error));
       return new Response(
         JSON.stringify({ error: `Token exchange failed: ${exchangeData.error.message}` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

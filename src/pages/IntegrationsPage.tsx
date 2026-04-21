@@ -115,22 +115,20 @@ export default function IntegrationsPage() {
       }
 
       // ✅ Edge Function-এর মাধ্যমে Long-Lived Token — FACEBOOK_APP_ID ও APP_SECRET Supabase Secrets-এ
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://otvzexarrpuaewjjdxna.supabase.co';
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+      const { data: { session: currentSession } } = await supabase.auth.getSession();
+      if (!currentSession) {
+        throw new Error("No active session found! Cannot exchange token.");
+      }
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/fb-token-exchange`, {
-        method: 'POST',
+      const { data, error } = await supabase.functions.invoke('fb-token-exchange', {
+        body: { provider_token: providerToken },
         headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${anonKey}`,
-        },
-        body: JSON.stringify({ provider_token: providerToken }),
+          Authorization: `Bearer ${currentSession.access_token}`
+        }
       });
 
-      const data = await response.json();
-
-      if (!response.ok || data.error) {
-        const errMsg = data.error || 'Token exchange failed';
+      if (error || data?.error) {
+        const errMsg = data?.error?.message || data?.error || error?.message || 'Token exchange failed';
         if (
           errMsg.toLowerCase().includes('expired') ||
           errMsg.toLowerCase().includes('invalid') ||
@@ -143,7 +141,7 @@ export default function IntegrationsPage() {
         throw new Error(errMsg);
       }
 
-      const pages: FacebookPage[] = data.pages ?? [];
+      const pages: FacebookPage[] = data?.pages ?? [];
       setFbPages(pages);
 
       if (pages.length === 0) {

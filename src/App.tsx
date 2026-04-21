@@ -40,26 +40,25 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
  */
 async function exchangeFbTokenInBackground(providerToken: string) {
   try {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://otvzexarrpuaewjjdxna.supabase.co';
-    const anonKey    = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.error("[FB-TOKEN] No active session found!");
+      return; 
+    }
 
-    const response = await fetch(`${supabaseUrl}/functions/v1/fb-token-exchange`, {
-      method: 'POST',
+    const { data, error } = await supabase.functions.invoke('fb-token-exchange', {
+      body: { provider_token: providerToken },
       headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${anonKey}`,
-      },
-      body: JSON.stringify({ provider_token: providerToken }),
+        Authorization: `Bearer ${session.access_token}`
+      }
     });
 
-    const data = await response.json();
-
-    if (!response.ok || data.error) {
-      console.warn('[FB-TOKEN] Background exchange failed:', data.error);
+    if (error || data?.error) {
+      console.warn('[FB-TOKEN] Background exchange failed:', error?.message || data?.error);
       return;
     }
 
-    const pages = data.pages ?? [];
+    const pages = data?.pages ?? [];
     console.log(`[FB-TOKEN] Background exchange OK — ${pages.length} pages available.`);
 
     // If the user has exactly one page, auto-save it silently
