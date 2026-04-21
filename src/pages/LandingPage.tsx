@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { TrendingUp, Wallet, MessageCircle, ShieldAlert, BarChart3, CheckCircle2, Menu, X } from 'lucide-react';
 import EngazeUpFooter from '../components/EngazeUpFooter';
+import RoiCalculator from '../components/RoiCalculator';
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -112,8 +113,11 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ROI Calculator Section */}
+      <RoiCalculator />
+
       {/* Pricing Section */}
-      <section id="pricing" className="py-20 bg-[#F8F9FA]">
+      <section id="pricing" className="py-20 bg-white border-t border-gray-100">
         <div className="max-w-6xl mx-auto px-6 md:px-12">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4 tracking-tight">সহজ ও স্বচ্ছ প্রাইসিং</h2>
