@@ -26,6 +26,7 @@ export default function LandingPage() {
 
         {/* Mobile Hamburger Button */}
         <button 
+          aria-label="Open Mobile Menu"
           className="md:hidden text-gray-700 p-2 bg-gray-50 hover:bg-gray-100 rounded-lg transition" 
           onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
         >
@@ -47,8 +48,9 @@ export default function LandingPage() {
         )}
       </nav>
 
+      <main className="flex-1 w-full flex flex-col">
       {/* Hero Section */}
-      <section className="py-20 px-6 md:px-12 max-w-6xl mx-auto text-center flex-1">
+      <section className="py-20 px-6 md:px-12 max-w-6xl mx-auto text-center">
         <div className="inline-flex items-center gap-2 bg-[#0F6E56]/10 text-[#0F6E56] px-5 py-2 rounded-full text-sm font-bold mb-8 border border-[#0F6E56]/20 shadow-sm">
           <span className="relative flex h-2.5 w-2.5">
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#0F6E56] opacity-75"></span>
@@ -75,10 +77,10 @@ export default function LandingPage() {
         <div className="mt-20 pt-10 border-t border-gray-100">
           <p className="text-sm text-gray-500 font-bold mb-6 uppercase tracking-wider">ইন্টিগ্রেটেড কুরিয়ার পার্টনার্স</p>
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-60 grayscale hover:grayscale-0 transition duration-500">
-            <span className="text-2xl font-bold font-en text-[#EF4444]">PATHAO</span>
-            <span className="text-2xl font-bold font-en text-[#3B82F6]">STEADFAST</span>
-            <span className="text-2xl font-bold font-en text-[#EF4444]">REDX</span>
-            <span className="text-2xl font-bold font-en text-[#8B5CF6]">PAPERFLY</span>
+            <span className="text-2xl font-bold font-en text-[#DC2626]">PATHAO</span>
+            <span className="text-2xl font-bold font-en text-[#2563EB]">STEADFAST</span>
+            <span className="text-2xl font-bold font-en text-[#DC2626]">REDX</span>
+            <span className="text-2xl font-bold font-en text-[#7C3AED]">PAPERFLY</span>
           </div>
         </div>
       </section>
@@ -173,6 +175,7 @@ export default function LandingPage() {
         </div>
       </section>
 
+      </main>
       <EngazeUpFooter />
     </div>
   );

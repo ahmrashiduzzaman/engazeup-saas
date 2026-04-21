@@ -1,23 +1,25 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from 'react-hot-toast';
 import toast from 'react-hot-toast';
 
-// Pages
+// Core Pages (Eagerly Loaded)
 import { supabase } from './lib/supabase';
 import LandingPage from './pages/LandingPage';
 import AuthPage from './pages/AuthPage';
-import OnboardingPage from './pages/OnboardingPage';
-import DashboardHome from './pages/DashboardHome';
-import FinanceView from './pages/FinanceView';
-import InventoryPage from './pages/InventoryPage';
-import NewParcelForm from './pages/NewParcelForm';
-import OrderList from './pages/OrderList';
-import CustomerDirectory from './pages/CustomerDirectory';
-import IntegrationsPage from './pages/IntegrationsPage';
-import BillingPage from './pages/BillingPage';
-import AdminPanel from './pages/AdminPanel';
+
+// Code Split Protected Pages (Lazy Loaded)
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'));
+const DashboardHome = lazy(() => import('./pages/DashboardHome'));
+const FinanceView = lazy(() => import('./pages/FinanceView'));
+const InventoryPage = lazy(() => import('./pages/InventoryPage'));
+const NewParcelForm = lazy(() => import('./pages/NewParcelForm'));
+const OrderList = lazy(() => import('./pages/OrderList'));
+const CustomerDirectory = lazy(() => import('./pages/CustomerDirectory'));
+const IntegrationsPage = lazy(() => import('./pages/IntegrationsPage'));
+const BillingPage = lazy(() => import('./pages/BillingPage'));
+const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuth();
@@ -130,25 +132,27 @@ function AppRoutes() {
   }, [navigate]);
 
   return (
-    <Routes>
-      <Route path="/" element={<LandingPage />} />
-      <Route path="/login" element={<AuthPage isRegister={false} />} />
-      <Route path="/register" element={<AuthPage isRegister={true} />} />
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[#F8F9FA] text-[#0F6E56] font-bold">Loading EngazeUp...</div>}>
+      <Routes>
+        <Route path="/" element={<LandingPage />} />
+        <Route path="/login" element={<AuthPage isRegister={false} />} />
+        <Route path="/register" element={<AuthPage isRegister={true} />} />
 
-      {/* Protected Routes */}
-      <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
-      <Route path="/dashboard" element={<ProtectedRoute><DashboardHome /></ProtectedRoute>} />
-      <Route path="/finance" element={<ProtectedRoute><FinanceView /></ProtectedRoute>} />
-      <Route path="/new-parcel" element={<ProtectedRoute><NewParcelForm /></ProtectedRoute>} />
-      <Route path="/orders" element={<ProtectedRoute><OrderList /></ProtectedRoute>} />
-      <Route path="/customers" element={<ProtectedRoute><CustomerDirectory /></ProtectedRoute>} />
-      <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
-      <Route path="/integrations" element={<ProtectedRoute><IntegrationsPage /></ProtectedRoute>} />
-      <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
-      <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
+        {/* Protected Routes */}
+        <Route path="/onboarding" element={<ProtectedRoute><OnboardingPage /></ProtectedRoute>} />
+        <Route path="/dashboard" element={<ProtectedRoute><DashboardHome /></ProtectedRoute>} />
+        <Route path="/finance" element={<ProtectedRoute><FinanceView /></ProtectedRoute>} />
+        <Route path="/new-parcel" element={<ProtectedRoute><NewParcelForm /></ProtectedRoute>} />
+        <Route path="/orders" element={<ProtectedRoute><OrderList /></ProtectedRoute>} />
+        <Route path="/customers" element={<ProtectedRoute><CustomerDirectory /></ProtectedRoute>} />
+        <Route path="/inventory" element={<ProtectedRoute><InventoryPage /></ProtectedRoute>} />
+        <Route path="/integrations" element={<ProtectedRoute><IntegrationsPage /></ProtectedRoute>} />
+        <Route path="/billing" element={<ProtectedRoute><BillingPage /></ProtectedRoute>} />
+        <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
 
-      <Route path="*" element={<Navigate to="/" />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+    </Suspense>
   );
 }
 
