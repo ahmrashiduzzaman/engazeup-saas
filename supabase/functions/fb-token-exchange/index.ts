@@ -98,6 +98,30 @@ serve(async (req) => {
     const pages = pagesData.data ?? [];
     console.log(`[INFO] Found ${pages.length} Facebook Pages.`);
 
+    // ── Step 3: Automatically Subscribing Pages to App Webhooks ──
+    for (const page of pages) {
+      console.log(`[INFO] Subscribing page ${page.name} (${page.id}) to webhooks...`);
+      try {
+        const subRes = await fetch(`https://graph.facebook.com/v19.0/${page.id}/subscribed_apps`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            subscribed_fields: 'messages,messaging_postbacks',
+            access_token: page.access_token
+          })
+        });
+
+        const subData = await subRes.json();
+        if (subData.success) {
+          console.log(`[SUCCESS] Webhooks activated for ${page.name}`);
+        } else {
+          console.error(`[WARNING] Failed to subscribe ${page.name}:`, JSON.stringify(subData.error));
+        }
+      } catch (err) {
+        console.error(`[ERROR] Network failure subscribing ${page.name}:`, err);
+      }
+    }
+
     return new Response(
       JSON.stringify({ pages }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
