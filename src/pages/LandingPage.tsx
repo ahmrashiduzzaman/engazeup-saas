@@ -77,10 +77,10 @@ export default function LandingPage() {
         <div className="mt-20 pt-10 border-t border-gray-100">
           <p className="text-sm text-gray-500 font-bold mb-6 uppercase tracking-wider">ইন্টিগ্রেটেড কুরিয়ার পার্টনার্স</p>
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-60 grayscale hover:grayscale-0 transition duration-500">
-            <span className="text-2xl font-bold font-en text-[#DC2626]">PATHAO</span>
-            <span className="text-2xl font-bold font-en text-[#2563EB]">STEADFAST</span>
-            <span className="text-2xl font-bold font-en text-[#DC2626]">REDX</span>
-            <span className="text-2xl font-bold font-en text-[#7C3AED]">PAPERFLY</span>
+            <span className="text-2xl font-bold font-en text-red-700">PATHAO</span>
+            <span className="text-2xl font-bold font-en text-blue-700">STEADFAST</span>
+            <span className="text-2xl font-bold font-en text-red-700">REDX</span>
+            <span className="text-2xl font-bold font-en text-purple-700">PAPERFLY</span>
           </div>
         </div>
       </section>
