@@ -101,7 +101,7 @@ export default function DashboardLayout({
         <div className="flex items-center gap-2 text-[#0F6E56] font-bold text-xl cursor-pointer" onClick={() => navigate('/dashboard')}>
           <TrendingUp className="h-6 w-6" /><span>EngazeUp</span>
         </div>
-        <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-600 bg-gray-50 p-2 rounded-lg border border-gray-200">
+        <button aria-label="Open Mobile Menu" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="text-gray-600 bg-gray-50 p-2 rounded-lg border border-gray-200">
           <Menu className="h-6 w-6" />
         </button>
       </div>

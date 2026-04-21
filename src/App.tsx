@@ -124,21 +124,7 @@ function AppRoutes() {
       }
     });
 
-    const style = document.createElement('style');
-    style.innerHTML = `
-      @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=Noto+Sans+Bengali:wght@700;800;900&display=swap');
-      body {
-        font-family: 'Hind Siliguri', sans-serif;
-        background-color: #F8F9FA;
-        color: #1F2937;
-      }
-      .font-en {
-        font-family: 'Inter', sans-serif;
-      }
-    `;
-    document.head.appendChild(style);
     return () => {
-      if (document.head.contains(style)) document.head.removeChild(style);
       subscription.unsubscribe(); // Cleanup Auth Listener
     };
   }, [navigate]);

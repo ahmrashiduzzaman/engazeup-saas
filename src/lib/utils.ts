@@ -1,10 +1,10 @@
 import { Dispatch, SetStateAction } from 'react';
 
 export const courierColors: Record<string, string> = {
-  'Pathao': '#EF4444',
-  'Steadfast': '#3B82F6',
-  'RedX': '#EF4444',
-  'Paperfly': '#8B5CF6'
+  'Pathao': '#DC2626',
+  'Steadfast': '#2563EB',
+  'RedX': '#DC2626',
+  'Paperfly': '#7C3AED'
 };
 
 export const engToBdNum = (num: number | string) => {
