@@ -64,9 +64,10 @@ export default function DashboardHome() {
       const prev = { api: false, csv: false, sms: false };
       const next = { api: apiConnected, csv: hasCustomers, sms: hasSmsHistory };
 
-      if (next.api && !prev.api) setCelebration({ show: true, message: 'API কানেকশন', days: 5 });
-      else if (next.csv && !prev.csv) setCelebration({ show: true, message: 'কাস্টমার লিস্ট', days: 5 });
-      else if (next.sms && !prev.sms) setCelebration({ show: true, message: 'Bulk SMS ক্রেডিট', days: 3 });
+      // Temporarily disabled celebration popups per user request
+      // if (next.api && !prev.api) setCelebration({ show: true, message: 'API কানেকশন', days: 5 });
+      // else if (next.csv && !prev.csv) setCelebration({ show: true, message: 'কাস্টমার লিস্ট', days: 5 });
+      // else if (next.sms && !prev.sms) setCelebration({ show: true, message: 'Bulk SMS ক্রেডিট', days: 3 });
 
       setTasks(next);
       setIsLoadingTasks(false);
@@ -198,7 +199,7 @@ export default function DashboardHome() {
   return (
     <DashboardLayout title="আজকের অবস্থা (Today's Status)" subtitle="আপনার সম্পূর্ণ ফিন্যান্সিয়াল ও অপারেশনাল ওভারভিউ">
       {/* CELEBRATION OVERLAY */}
-      {celebration.show && (
+      {false && celebration.show && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center" onClick={closeCelebration}>
           <style>{`@keyframes shrink { from { width: 100%; } to { width: 0%; } } @keyframes floatUp { 0% { transform: translateY(100vh) scale(0.5); opacity:1; } 100% { transform: translateY(-20vh) scale(1.5); opacity:0; } } .confetti-piece { animation: floatUp 3s ease-out forwards; position: absolute; pointer-events: none; }`}</style>
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
