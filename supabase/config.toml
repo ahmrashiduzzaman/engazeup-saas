@@ -14,3 +14,16 @@ entrypoint = "./functions/send-courier/index.ts"
 enabled = true
 verify_jwt = false
 
+[functions.fb-webhook]
+enabled = true
+verify_jwt = false
+
+[functions.woo-webhook]
+enabled = true
+verify_jwt = false
+
+[functions.bulk-sms]
+enabled = true
+verify_jwt = true
+
+
