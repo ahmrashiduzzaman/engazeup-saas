@@ -71,7 +71,7 @@ export default function LandingPage() {
 
         <div className="flex flex-col sm:flex-row justify-center gap-4">
           <button onClick={() => navigate('/register')} className="bg-gradient-to-r from-[#0F6E56] to-[#1D9E75] text-white px-8 py-4 rounded-xl text-lg font-bold hover:from-[#1D9E75] hover:to-[#0F6E56] transition-all shadow-xl shadow-[#0F6E56]/25 transform hover:-translate-y-1">
-            ফ্রি ট্রায়াল শুরু করুন (১৪ দিন)
+            ফ্রি ট্রায়াল শুরু করুন
           </button>
         </div>
 
