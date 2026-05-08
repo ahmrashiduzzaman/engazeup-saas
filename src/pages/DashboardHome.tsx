@@ -24,6 +24,7 @@ export default function DashboardHome() {
   const [trendData, setTrendData] = useState<any[]>([]);
   const [highRiskOrders, setHighRiskOrders] = useState<any[]>([]);
   const [shopCreatedAt, setShopCreatedAt] = useState<string | null>(null);
+  const [shopInfo, setShopInfo] = useState({ role: 'user', plan: 'starter' });
 
   const daysPassed = shopCreatedAt ? Math.floor((new Date().getTime() - new Date(shopCreatedAt).getTime()) / (1000 * 60 * 60 * 24)) : 0;
   const grantedDays = 14 + (tasks.api ? 5 : 0) + (tasks.csv ? 5 : 0) + (tasks.sms ? 3 : 0);
@@ -48,13 +49,14 @@ export default function DashboardHome() {
     const verifyTasks = async () => {
       setIsLoadingTasks(true);
       const [shopRes, customerRes, smsRes] = await Promise.all([
-        supabase.from('shops').select('created_at, steadfast_api_key, sms_credits').eq('id', user.id).single(),
+        supabase.from('shops').select('created_at, steadfast_api_key, sms_credits, role, plan').eq('id', user.id).single(),
         supabase.from('customers').select('id', { count: 'exact', head: true }).eq('shop_id', user.id).eq('is_deleted', false),
         supabase.from('manual_payments').select('id', { count: 'exact', head: true }).eq('shop_id', user.id).eq('purpose', 'sms_recharge'),
       ]);
 
-      if (shopRes.data?.created_at) {
+      if (shopRes.data) {
         setShopCreatedAt(shopRes.data.created_at);
+        setShopInfo({ role: shopRes.data.role || 'user', plan: shopRes.data.plan || 'starter' });
       }
 
       const apiConnected = !!(shopRes.data?.steadfast_api_key);
@@ -226,8 +228,9 @@ export default function DashboardHome() {
       )}
 
       {/* GAMIFIED TRIAL UNLOCK WIDGET */}
-      <div className="bg-gradient-to-br from-[#0F6E56] to-[#0a4d3c] rounded-3xl p-[3px] shadow-lg mb-10 transform transition-all relative overflow-hidden">
-        <div className="bg-white rounded-[22px] p-6 md:p-8 relative z-10">
+      {(shopInfo.plan === 'starter' && shopInfo.role !== 'admin' && shopInfo.role !== 'super_admin') && (
+        <div className="bg-gradient-to-br from-[#0F6E56] to-[#0a4d3c] rounded-3xl p-[3px] shadow-lg mb-10 transform transition-all relative overflow-hidden">
+          <div className="bg-white rounded-[22px] p-6 md:p-8 relative z-10">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
             <div>
               {isTrialExpired ? (
@@ -332,6 +335,7 @@ export default function DashboardHome() {
           )}
         </div>
       </div>
+      )}
 
       {/* Top Metrics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
