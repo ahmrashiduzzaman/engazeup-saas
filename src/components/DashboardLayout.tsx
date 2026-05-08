@@ -11,6 +11,9 @@ import {
 interface ShopProfile {
   shop_name: string | null;
   plan: string;
+  role: string;
+  plan_expires_at: string | null;
+  created_at: string;
 }
 
 const PLAN_LABELS: Record<string, { label: string; color: string }> = {
@@ -28,6 +31,7 @@ export default function DashboardLayout({
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [shopProfile, setShopProfile] = useState<ShopProfile | null>(null);
+  const [isCheckingProfile, setIsCheckingProfile] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -38,16 +42,67 @@ export default function DashboardLayout({
   const location = useLocation();
 
   const fetchProfile = async () => {
-    if (!user) return;
-    const { data } = await supabase
+    if (!user) {
+      setIsCheckingProfile(false);
+      return;
+    }
+    setIsCheckingProfile(true);
+    
+    const { data, error } = await supabase
       .from('shops')
-      .select('shop_name, plan')
+      .select('shop_name, plan, role, plan_expires_at, created_at')
       .eq('id', user.id)
       .single();
-    if (data) setShopProfile({ shop_name: data.shop_name, plan: data.plan ?? 'starter' });
+      
+    if (error) {
+      console.warn('Could not fetch full profile, trying fallback without role:', error.message);
+      const { data: fallbackData } = await supabase
+        .from('shops')
+        .select('shop_name, plan, plan_expires_at, created_at')
+        .eq('id', user.id)
+        .single();
+        
+      if (fallbackData) {
+        setShopProfile({ 
+          shop_name: fallbackData.shop_name, 
+          plan: fallbackData.plan ?? 'starter',
+          role: 'user', // Default fallback
+          plan_expires_at: fallbackData.plan_expires_at,
+          created_at: fallbackData.created_at
+        });
+      }
+    } else if (data) {
+      setShopProfile({ 
+        shop_name: data.shop_name, 
+        plan: data.plan ?? 'starter',
+        role: data.role ?? 'user',
+        plan_expires_at: data.plan_expires_at,
+        created_at: data.created_at
+      });
+    }
+    
+    setIsCheckingProfile(false);
   };
 
   useEffect(() => { fetchProfile(); }, [user]);
+
+  const isExpired = React.useMemo(() => {
+    if (!shopProfile) return false;
+    if (shopProfile.role === 'admin' || shopProfile.role === 'super_admin') return false;
+    if (shopProfile.plan !== 'starter') return false;
+    
+    const expiryDate = shopProfile.plan_expires_at 
+      ? new Date(shopProfile.plan_expires_at) 
+      : new Date(new Date(shopProfile.created_at).getTime() + 14 * 24 * 60 * 60 * 1000);
+      
+    return expiryDate.getTime() < Date.now();
+  }, [shopProfile]);
+
+  useEffect(() => {
+    if (!isCheckingProfile && isExpired && location.pathname !== '/billing') {
+      navigate('/billing', { replace: true });
+    }
+  }, [isExpired, isCheckingProfile, location.pathname, navigate]);
 
   const openEditModal = () => {
     setEditName(shopProfile?.shop_name ?? '');
@@ -181,6 +236,27 @@ export default function DashboardLayout({
 
       {isMobileMenuOpen && (
         <div className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+      )}
+
+      {/* ── TRIAL EXPIRED OVERLAY ── */}
+      {(!isCheckingProfile && isExpired && location.pathname !== '/billing') && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 md:p-12 max-w-lg w-full text-center shadow-2xl border-4 border-red-500/20">
+            <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6">
+              <span className="text-4xl">⚠️</span>
+            </div>
+            <h2 className="text-3xl font-extrabold text-gray-900 mb-4">আপনার ট্রায়াল শেষ!</h2>
+            <p className="text-lg text-gray-600 mb-8 font-medium leading-relaxed">
+              আপনার অ্যাকাউন্টের মেয়াদ শেষ হয়ে গেছে। EngazeUp এর সুবিধাগুলো উপভোগ করতে একটি প্যাকেজ বেছে নিন।
+            </p>
+            <button
+              onClick={() => navigate('/billing')}
+              className="w-full bg-[#0F6E56] hover:bg-[#1D9E75] text-white font-extrabold py-4 px-8 rounded-xl shadow-lg shadow-[#0F6E56]/30 transition-all transform hover:-translate-y-1 text-lg"
+            >
+              প্যাকেজ আপগ্রেড করুন
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ── Edit Profile Modal ── */}
