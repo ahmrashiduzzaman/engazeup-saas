@@ -39,16 +39,16 @@ serve(async (req) => {
 
   // ── 2. INCOMING MESSAGES (POST) ──
   if (req.method === 'POST') {
+    console.log('🔥 WEBHOOK HIT! Request incoming...');
+    const rawBody = await req.text();
+    console.log('📦 RAW PAYLOAD:', rawBody);
+
     // সাথে সাথে 200 OK দিয়ে দাও — Facebook timeout এড়াতে
     const responsePromise = new Response('EVENT_RECEIVED', { status: 200 });
 
     // Background-এ প্রসেস করো
     (async () => {
       try {
-        console.log('🔥 WEBHOOK HIT! Request incoming...');
-        const rawBody = await req.text();
-        console.log('📦 RAW PAYLOAD:', rawBody);
-
         const body = JSON.parse(rawBody);
         if (body.object !== 'page') return;
 
