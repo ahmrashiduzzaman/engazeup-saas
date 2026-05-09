@@ -107,34 +107,24 @@ export default function OrderList() {
     setIsBulkSending(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/send-courier`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session?.access_token}`,
-          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY
-        },
-        body: JSON.stringify({ orderIds: selectedOrders, courierName: selectedCourier })
+      const { data, error } = await supabase.functions.invoke('send-courier', {
+        body: { orderIds: selectedOrders, courierName: selectedCourier }
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to send to courier');
+      if (error) {
+        throw new Error(error.message || 'Edge Function error');
       }
 
-      if (data.success === false || (data.message && data.message.includes('ফেইল'))) {
-        toast.error(data.message || 'কুরিয়ারে পাঠাতে সমস্যা হয়েছে!');
+      if (data?.success === false || (data?.message && data.message.includes('ফেইল'))) {
+        toast.error(data.message || 'কুরিয়ারে পাঠাতে সমস্যা হয়েছে!');
       } else {
-        toast.success(data.message || 'কুরিয়ারে সফলভাবে পাঠানো হয়েছে!');
+        toast.success(data?.message || 'কুরিয়ারে সফলভাবে পাঠানো হয়েছে!');
       }
       
       fetchOrders();
     } catch (err: any) {
       console.error('Send to courier error:', err);
-      toast.error('সমস্যা হয়েছে: ' + err.message);
+      toast.error('সমস্যা হয়েছে: ' + err.message);
     } finally {
       setIsBulkSending(false);
     }
