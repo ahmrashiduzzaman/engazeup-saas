@@ -31,20 +31,7 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // Manual auth check (since verify_jwt is disabled for CORS)
-    const authHeader = req.headers.get('Authorization')
-    if (authHeader) {
-      const token = authHeader.replace('Bearer ', '')
-      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token)
-      if (authError || !authUser) {
-        return new Response(
-          JSON.stringify({ success: false, error: 'Unauthorized' }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-    }
-
-    // 1. Fetch Orders
+    // Fetch Orders
     const { data: orders, error: fetchError } = await supabase
       .from('orders')
       .select('*')
@@ -62,14 +49,12 @@ serve(async (req) => {
       .in('id', uniqueShopIds)
 
     if (shopsError) {
-      console.warn('[WARN] Failed to fetch shops for API keys:', shopsError.message)
+      console.warn('[WARN] Failed to fetch shops:', shopsError.message)
     }
 
     const shopsMap = new Map((shops || []).map(s => [s.id, s]))
-
     const results = []
 
-    // 2. Loop through orders and push to the correct courier API
     for (const order of orders) {
       console.log(`[INFO] Sending order ${order.id} to ${courier}...`)
 
@@ -80,18 +65,13 @@ serve(async (req) => {
       if (courier === 'Paperfly') {
         const paperflyCid = Deno.env.get('PAPERFLY_CID') ?? ''
         const paperflySecretKey = Deno.env.get('PAPERFLY_SECRET_KEY') ?? ''
-
         if (!paperflyCid || !paperflySecretKey) {
           apiErrorMessage = 'Paperfly credentials missing'
         } else {
           try {
             const paperflyRes = await fetch('https://api.paperfly.com.bd/api/parcel/add', {
               method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Cid': paperflyCid,
-                'Secret-Key': paperflySecretKey
-              },
+              headers: { 'Content-Type': 'application/json', 'Cid': paperflyCid, 'Secret-Key': paperflySecretKey },
               body: JSON.stringify({
                 merch_order_id: order.id,
                 recipient_name: order.customer_name,
@@ -118,7 +98,7 @@ serve(async (req) => {
         const sfSecretKey = shopData?.steadfast_api_secret || ''
 
         if (!sfApiKey || !sfSecretKey) {
-          apiErrorMessage = 'Steadfast credentials missing'
+          apiErrorMessage = 'Steadfast credentials missing for this shop'
         } else {
           try {
             const payload = {
@@ -144,43 +124,36 @@ serve(async (req) => {
             console.log(`[INFO] Steadfast Raw Response:`, sfResText)
 
             let sfData;
-            try {
-              sfData = JSON.parse(sfResText)
-            } catch (e) {
-              apiErrorMessage = `Failed to parse Steadfast response: ${sfResText.substring(0, 150)}`
+            try { sfData = JSON.parse(sfResText) } catch (e) {
+              apiErrorMessage = `Steadfast returned non-JSON (HTTP ${sfRes.status}): ${sfResText.substring(0, 200)}`
             }
 
             if (sfData?.status === 200 && sfData?.consignment?.tracking_code) {
               trackingId = sfData.consignment.tracking_code
               isSuccess = true
             } else if (sfData) {
-              const msg = sfData?.errors ? JSON.stringify(sfData.errors) : (sfData?.message || 'Steadfast API error')
-              apiErrorMessage = msg
+              apiErrorMessage = sfData?.errors ? JSON.stringify(sfData.errors) : (sfData?.message || `Steadfast error: ${JSON.stringify(sfData)}`)
             }
           } catch (err: any) {
-             apiErrorMessage = err.message
+            apiErrorMessage = err.message
           }
         }
+
       } else {
-        // Pathao, RedX, ইত্যাদি — এখন Mock
+        // Pathao, RedX — Mock for now
         trackingId = `${courier.toUpperCase()}-` + Math.random().toString(36).substring(2, 10).toUpperCase()
         isSuccess = true
       }
 
       if (!isSuccess) {
-         console.error(`[ERROR] Courier API failed for order ${order.id}: ${apiErrorMessage}`)
-         results.push({ orderId: order.id, success: false, error: apiErrorMessage })
-         continue // Skip updating the DB to Shipped
+        console.error(`[ERROR] Courier API failed for order ${order.id}: ${apiErrorMessage}`)
+        results.push({ orderId: order.id, success: false, error: apiErrorMessage })
+        continue
       }
 
-      // 3. Update Order in Database if Success
       const { error: updateError } = await supabase
         .from('orders')
-        .update({
-          status: 'Shipped',
-          courier_name: courier,
-          tracking_id: trackingId
-        })
+        .update({ status: 'Shipped', courier_name: courier, tracking_id: trackingId })
         .eq('id', order.id)
 
       if (updateError) {
@@ -216,23 +189,19 @@ serve(async (req) => {
       }
     }
 
-    const successCount = results.filter(r => r.success).length;
-    const failCount = results.length - successCount;
-    const firstError = results.find(r => !r.success)?.error;
-    
-    let message = `${successCount}টি অর্ডার ${courier}-এ সফলভাবে পাঠানো হয়েছে!`;
-    if (failCount > 0) {
-       message = `${successCount}টি সফল, ${failCount}টি ফেইল করেছে! Error: ${firstError}`;
-    }
+    const successCount = results.filter(r => r.success).length
+    const failCount = results.length - successCount
+    const firstError = results.find(r => !r.success)?.error
+
+    const message = failCount > 0
+      ? `${successCount}টি সফল, ${failCount}টি ফেইল! Error: ${firstError}`
+      : `${successCount}টি অর্ডার ${courier}-এ সফলভাবে পাঠানো হয়েছে!`
 
     return new Response(
-      JSON.stringify({
-        success: successCount > 0,
-        message: message,
-        results
-      }),
+      JSON.stringify({ success: successCount > 0, message, results }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
+
   } catch (error: any) {
     console.error('[ERROR] send-courier:', error.message)
     return new Response(
