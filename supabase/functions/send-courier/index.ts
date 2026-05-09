@@ -31,6 +31,19 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     const supabase = createClient(supabaseUrl, supabaseKey)
 
+    // Manual auth check (since verify_jwt is disabled for CORS)
+    const authHeader = req.headers.get('Authorization')
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '')
+      const { data: { user: authUser }, error: authError } = await supabase.auth.getUser(token)
+      if (authError || !authUser) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'Unauthorized' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+
     // 1. Fetch Orders
     const { data: orders, error: fetchError } = await supabase
       .from('orders')
