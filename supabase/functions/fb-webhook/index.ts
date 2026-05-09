@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { sendAutoSms } from "../_shared/smsService.ts"
 
 // ── Webhook Verify Token (Facebook App Dashboard-এ সেট করতে হবে) ──
 const VERIFY_TOKEN = 'engazeup_secret';
@@ -71,7 +72,7 @@ serve(async (req) => {
           // Multi-tenant: প্রতিটি shop-এর নিজস্ব page token ব্যবহার হবে
           const { data: shopRow, error: shopErr } = await supabase
             .from('shops')
-            .select('id, fb_page_access_token')
+            .select('id, fb_page_access_token, auto_sms_order_confirmed, shop_name')
             .eq('fb_page_id', recipientId)
             .single();
 
@@ -189,7 +190,7 @@ Reply ONLY with a valid JSON object. Do not include any markdown, backticks, or 
               console.log('[INFO] Customer saved.');
 
               // Order insert (shop-specific)
-              const { error: orderError } = await supabase.from('orders').insert({
+              const { data: orderRow, error: orderError } = await supabase.from('orders').insert({
                 shop_id: shopId,
                 customer_name: cleanJson.customer_name || 'Customer',
                 phone_number: safePhone,
@@ -197,9 +198,23 @@ Reply ONLY with a valid JSON object. Do not include any markdown, backticks, or 
                 source: 'Facebook AI',
                 status: 'Pending',
                 cod_amount: safeCodAmount
-              });
+              }).select('id').single();
+              
               if (orderError) throw orderError;
               console.log('[INFO] Order saved.');
+
+              // Trigger 1: Order Confirmed Automated SMS
+              if (shopRow.auto_sms_order_confirmed && orderRow?.id) {
+                const message = `আপনার অর্ডারটি (ID: ${orderRow.id}) কনফার্ম হয়েছে। বিল: ৳${safeCodAmount}। খুব শীঘ্রই পার্সেল পাঠানো হবে। - ${shopRow.shop_name || 'EngazeUp Shop'}`;
+                // Non-blocking fire and forget
+                sendAutoSms({
+                  shopId,
+                  phoneNumbers: [safePhone],
+                  message,
+                  supabaseClient: supabase
+                }).catch(e => console.error('[SMS] Unexpected error sending order confirmed SMS:', e));
+              }
+
             } catch (error) {
               console.error('DB Insert Failed:', error);
             }

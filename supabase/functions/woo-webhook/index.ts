@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { sendAutoSms } from "../_shared/smsService.ts"
 serve(async (req) => {
   if (req.method !== 'POST') {
     return new Response('Method Not Allowed', { status: 405 });
@@ -37,6 +38,12 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { data: shopRow } = await supabase
+      .from('shops')
+      .select('auto_sms_order_confirmed, shop_name')
+      .eq('id', shopId)
+      .single();
 
     let existingOrder = null;
 
@@ -106,13 +113,26 @@ serve(async (req) => {
         woo_order_id: wooOrderId
       };
 
-      const { error: insertError } = await supabase
+      const { data: orderRow, error: insertError } = await supabase
         .from('orders')
-        .insert(newOrderData);
+        .insert(newOrderData)
+        .select('id')
+        .single();
 
       if (insertError) {
         console.error('[ERROR] Failed to insert new WooCommerce order:', insertError.message);
         return new Response('Failed to insert new order', { status: 500 });
+      }
+
+      // Trigger 1: Order Confirmed Automated SMS
+      if (shopRow?.auto_sms_order_confirmed && orderRow?.id) {
+        const message = `আপনার অর্ডারটি (ID: ${orderRow.id}) কনফার্ম হয়েছে। বিল: ৳${codAmount}। খুব শীঘ্রই পার্সেল পাঠানো হবে। - ${shopRow.shop_name || 'EngazeUp Shop'}`;
+        sendAutoSms({
+          shopId,
+          phoneNumbers: [phone],
+          message,
+          supabaseClient: supabase
+        }).catch(e => console.error('[SMS] Unexpected error sending woo order confirmed SMS:', e));
       }
 
       return new Response(JSON.stringify({

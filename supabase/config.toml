@@ -22,6 +22,10 @@ verify_jwt = false
 enabled = true
 verify_jwt = false
 
+[functions.courier-webhook]
+enabled = true
+verify_jwt = false
+
 [functions.bulk-sms]
 enabled = true
 verify_jwt = true

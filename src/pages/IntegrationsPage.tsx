@@ -37,6 +37,12 @@ export default function IntegrationsPage() {
   const [connectedFbPage, setConnectedFbPage] = useState<{id: string, name: string} | null>(null);
   const [selectedPageId, setSelectedPageId] = useState('');
 
+  // Automated SMS States
+  const [autoSmsConfirmed, setAutoSmsConfirmed] = useState(false);
+  const [autoSmsDispatched, setAutoSmsDispatched] = useState(false);
+  const [autoSmsReturned, setAutoSmsReturned] = useState(false);
+  const [isSavingSmsSettings, setIsSavingSmsSettings] = useState(false);
+
   const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL || 'https://otvzexarrpuaewjjdxna.supabase.co'}/functions/v1/woo-webhook?shop_id=${user?.id || 'YOUR_SHOP_ID'}`;
   const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'your-anon-key';
 
@@ -46,7 +52,7 @@ export default function IntegrationsPage() {
       setIsLoadingKeys(true);
       const { data } = await supabase
         .from('shops')
-        .select('steadfast_api_key, steadfast_api_secret, fb_page_id, fb_page_name')
+        .select('steadfast_api_key, steadfast_api_secret, fb_page_id, fb_page_name, auto_sms_order_confirmed, auto_sms_dispatched, auto_sms_returned')
         .eq('id', user.id)
         .single();
       if (data) {
@@ -57,6 +63,10 @@ export default function IntegrationsPage() {
         if (data.fb_page_id && data.fb_page_name) {
           setConnectedFbPage({ id: data.fb_page_id, name: data.fb_page_name });
         }
+        
+        setAutoSmsConfirmed(data.auto_sms_order_confirmed ?? false);
+        setAutoSmsDispatched(data.auto_sms_dispatched ?? false);
+        setAutoSmsReturned(data.auto_sms_returned ?? false);
       }
       setIsLoadingKeys(false);
     };
@@ -197,6 +207,33 @@ export default function IntegrationsPage() {
     } finally {
       setIsSavingKeys(false);
     }
+  };
+
+  const handleToggleSms = async (field: 'auto_sms_order_confirmed' | 'auto_sms_dispatched' | 'auto_sms_returned', currentValue: boolean) => {
+    if (!user) return;
+    setIsSavingSmsSettings(true);
+    const newValue = !currentValue;
+    
+    // Optimistic UI update
+    if (field === 'auto_sms_order_confirmed') setAutoSmsConfirmed(newValue);
+    if (field === 'auto_sms_dispatched') setAutoSmsDispatched(newValue);
+    if (field === 'auto_sms_returned') setAutoSmsReturned(newValue);
+
+    const { error } = await supabase
+      .from('shops')
+      .update({ [field]: newValue })
+      .eq('id', user.id);
+
+    if (error) {
+      toast.error('সেটিং আপডেট করতে সমস্যা হয়েছে!');
+      // Revert on error
+      if (field === 'auto_sms_order_confirmed') setAutoSmsConfirmed(currentValue);
+      if (field === 'auto_sms_dispatched') setAutoSmsDispatched(currentValue);
+      if (field === 'auto_sms_returned') setAutoSmsReturned(currentValue);
+    } else {
+      toast.success(newValue ? 'SMS অটোমেশন চালু হয়েছে!' : 'SMS অটোমেশন বন্ধ করা হয়েছে!');
+    }
+    setIsSavingSmsSettings(false);
   };
 
   return (
@@ -434,6 +471,58 @@ export default function IntegrationsPage() {
                   {copiedKey ? 'Copied!' : <><Copy className="w-4 h-4" /> Copy</>}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Automated SMS Settings Panel ── */}
+        <div className="bg-white rounded-2xl border border-[#0F6E56]/20 shadow-sm p-6 overflow-hidden relative">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#0F6E56]/5 rounded-bl-[100px] z-0 pointer-events-none"></div>
+          <div className="relative z-10 flex items-center justify-between mb-5">
+            <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+              <MessageCircle className="w-6 h-6 text-[#0F6E56]" />
+              অটোমেটেড SMS প্যানেল (SaaS Standard)
+            </h3>
+          </div>
+          <p className="text-sm text-gray-500 font-medium mb-6 relative z-10">
+            এই সেটিংস চালু থাকলে, কাস্টমারদের নাম্বারে অটোমেটিকভাবে বাংলা SMS চলে যাবে। (প্রতি SMS-এ ১ ক্রেডিট চার্জ প্রযোজ্য)।
+          </p>
+
+          <div className="space-y-4 relative z-10">
+            {/* SMS Toggle 1 */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+              <div>
+                <h4 className="font-bold text-gray-800">১. অর্ডার কনফার্মেশন SMS</h4>
+                <p className="text-xs text-gray-500 mt-1">Facebook বা WooCommerce থেকে অর্ডার আসার সাথে সাথে কনফার্মেশন SMS যাবে।</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" className="sr-only peer" checked={autoSmsConfirmed} onChange={() => handleToggleSms('auto_sms_order_confirmed', autoSmsConfirmed)} disabled={isSavingSmsSettings} />
+                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0F6E56]"></div>
+              </label>
+            </div>
+
+            {/* SMS Toggle 2 */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+              <div>
+                <h4 className="font-bold text-gray-800">২. পার্সেল ডিসপ্যাচ SMS</h4>
+                <p className="text-xs text-gray-500 mt-1">পার্সেল কুরিয়ারে বুকিং দেওয়ার সাথে সাথে লাইভ ট্র্যাকিং লিংক সহ SMS যাবে।</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" className="sr-only peer" checked={autoSmsDispatched} onChange={() => handleToggleSms('auto_sms_dispatched', autoSmsDispatched)} disabled={isSavingSmsSettings} />
+                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0F6E56]"></div>
+              </label>
+            </div>
+
+            {/* SMS Toggle 3 */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
+              <div>
+                <h4 className="font-bold text-gray-800">৩. ডেলিভারি ফেইল্ড / রিটার্ন SMS</h4>
+                <p className="text-xs text-gray-500 mt-1">কুরিয়ার থেকে পার্সেল ডেলিভারি ফেইল্ড বা রিটার্ন হলে কাস্টমারকে অ্যালার্ট SMS যাবে।</p>
+              </div>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input type="checkbox" className="sr-only peer" checked={autoSmsReturned} onChange={() => handleToggleSms('auto_sms_returned', autoSmsReturned)} disabled={isSavingSmsSettings} />
+                <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#0F6E56]"></div>
+              </label>
             </div>
           </div>
         </div>

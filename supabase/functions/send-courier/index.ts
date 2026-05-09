@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { sendAutoSms } from "../_shared/smsService.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -45,7 +46,7 @@ serve(async (req) => {
     
     const { data: shops, error: shopsError } = await supabase
       .from('shops')
-      .select('id, steadfast_api_key, steadfast_api_secret')
+      .select('id, steadfast_api_key, steadfast_api_secret, auto_sms_dispatched, shop_name')
       .in('id', uniqueShopIds)
 
     if (shopsError) {
@@ -176,6 +177,25 @@ serve(async (req) => {
       } else {
         console.log(`[INFO] Order ${order.id} dispatched. Tracking: ${trackingId}`)
         results.push({ orderId: order.id, success: true, tracking_id: trackingId })
+
+        // Trigger 2: Parcel Dispatched Automated SMS
+        const shopData = shopsMap.get(order.shop_id)
+        if (shopData?.auto_sms_dispatched) {
+          let trackingLink = trackingId;
+          if (courier === 'Steadfast') trackingLink = `https://steadfast.com.bd/t/${trackingId}`;
+          else if (courier === 'Paperfly') trackingLink = `https://paperfly.com.bd/tracking?id=${trackingId}`;
+          else if (courier === 'Pathao') trackingLink = `https://pathao.com/bd/courier/track-your-parcel/?consignment_id=${trackingId}`;
+          else if (courier === 'RedX') trackingLink = `https://redx.com.bd/track-parcel/?trackingId=${trackingId}`;
+
+          const message = `আপনার পার্সেলটি ${courier} কুরিয়ারে দেওয়া হয়েছে। ট্র্যাকিং: ${trackingLink}। অনুগ্রহ করে ফোন খোলা রাখুন। - ${shopData.shop_name || 'EngazeUp Shop'}`;
+          
+          sendAutoSms({
+            shopId: order.shop_id,
+            phoneNumbers: [order.phone_number],
+            message,
+            supabaseClient: supabase
+          }).catch(e => console.error('[SMS] Unexpected error sending dispatch SMS:', e));
+        }
       }
     }
 
