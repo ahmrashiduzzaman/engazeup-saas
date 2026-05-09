@@ -9,6 +9,12 @@ export async function sendAutoSms({
   message: string;
   supabaseClient: any;
 }) {
+  const banglaToEnglishDigits = (str: string) => {
+    const banglaDigits = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯']
+    if (!str) return ''
+    return str.replace(/[০-৯]/g, (w) => banglaDigits.indexOf(w).toString())
+  }
+
   try {
     if (!phoneNumbers || phoneNumbers.length === 0) return false;
     if (!message || !message.trim()) return false;
@@ -52,7 +58,10 @@ export async function sendAutoSms({
 
     const isUnicode = /[^\u0000-\u00ff]/.test(message);
     const smsType = isUnicode ? 'unicode' : 'text';
-    const contactsStr = phoneNumbers.join('+');
+    
+    // Ensure numbers are English and clean
+    const cleanNumbers = phoneNumbers.map(p => banglaToEnglishDigits(p).replace(/\D/g, ''));
+    const contactsStr = cleanNumbers.join('+');
 
     const formData = new URLSearchParams();
     formData.append('api_key', apiKey);
@@ -73,6 +82,17 @@ export async function sendAutoSms({
 
     const resultText = await response.text();
     console.log(`[SMS] Dispatch successful. Sent to ${contactsStr}. Result: ${resultText}`);
+    
+    // Mim SMS returns 1002, 1003, 1004, 1005, 1011 for errors. It returns 1000 for success.
+    const isError = resultText.includes('1002') || resultText.includes('1003') || resultText.includes('1004') || resultText.includes('1005') || resultText.includes('1006') || resultText.includes('1011');
+    
+    if (isError || !response.ok) {
+      console.error(`[SMS] Mim SMS API rejected the request. Rolling back credits. Error: ${resultText}`);
+      // Rollback
+      await supabaseClient.from('shops').update({ sms_credits: shop.sms_credits }).eq('id', shopId);
+      return false;
+    }
+
     return true;
 
   } catch (error: any) {

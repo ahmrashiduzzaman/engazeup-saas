@@ -102,8 +102,8 @@ serve(async (req) => {
 
       } else if (courier === 'Steadfast') {
         const shopData = shopsMap.get(order.shop_id)
-        const sfApiKey = shopData?.steadfast_api_key || Deno.env.get('STEADFAST_API_KEY') || ''
-        const sfSecretKey = shopData?.steadfast_api_secret || Deno.env.get('STEADFAST_SECRET_KEY') || ''
+        const sfApiKey = shopData?.steadfast_api_key || ''
+        const sfSecretKey = shopData?.steadfast_api_secret || ''
 
         if (!sfApiKey || !sfSecretKey) {
           apiErrorMessage = 'Steadfast credentials missing'
