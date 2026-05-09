@@ -135,7 +135,7 @@ serve(async (req) => {
             try {
               sfData = JSON.parse(sfResText)
             } catch (e) {
-              apiErrorMessage = 'Failed to parse Steadfast response'
+              apiErrorMessage = `Failed to parse Steadfast response: ${sfResText.substring(0, 150)}`
             }
 
             if (sfData?.status === 200 && sfData?.consignment?.tracking_code) {
