@@ -199,10 +199,19 @@ serve(async (req) => {
       }
     }
 
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.length - successCount;
+    const firstError = results.find(r => !r.success)?.error;
+    
+    let message = `${successCount}টি অর্ডার ${courier}-এ সফলভাবে পাঠানো হয়েছে!`;
+    if (failCount > 0) {
+       message = `${successCount}টি সফল, ${failCount}টি ফেইল করেছে! Error: ${firstError}`;
+    }
+
     return new Response(
       JSON.stringify({
-        success: true,
-        message: `${results.length}টি অর্ডার ${courier}-এ সফলভাবে পাঠানো হয়েছে!`,
+        success: successCount > 0,
+        message: message,
         results
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

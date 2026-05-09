@@ -125,7 +125,12 @@ export default function OrderList() {
         throw new Error(data.error || 'Failed to send to courier');
       }
 
-      toast.success(data.message || 'কুরিয়ারে সফলভাবে পাঠানো হয়েছে!');
+      if (data.success === false || (data.message && data.message.includes('ফেইল'))) {
+        toast.error(data.message || 'কুরিয়ারে পাঠাতে সমস্যা হয়েছে!');
+      } else {
+        toast.success(data.message || 'কুরিয়ারে সফলভাবে পাঠানো হয়েছে!');
+      }
+      
       fetchOrders();
     } catch (err: any) {
       console.error('Send to courier error:', err);
