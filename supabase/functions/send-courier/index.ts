@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
-import { sendAutoSms } from "../_shared/smsService.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -189,12 +188,17 @@ serve(async (req) => {
 
           const message = `আপনার পার্সেলটি ${courier} কুরিয়ারে দেওয়া হয়েছে। ট্র্যাকিং: ${trackingLink}। অনুগ্রহ করে ফোন খোলা রাখুন। - ${shopData.shop_name || 'EngazeUp Shop'}`;
           
-          sendAutoSms({
-            shopId: order.shop_id,
-            phoneNumbers: [order.phone_number],
-            message,
-            supabaseClient: supabase
-          }).catch(e => console.error('[SMS] Unexpected error sending dispatch SMS:', e));
+          try {
+            const { sendAutoSms } = await import("../_shared/smsService.ts");
+            sendAutoSms({
+              shopId: order.shop_id,
+              phoneNumbers: [order.phone_number],
+              message,
+              supabaseClient: supabase
+            }).catch(e => console.error('[SMS] Unexpected error sending dispatch SMS:', e));
+          } catch (smsImportErr: any) {
+            console.error('[SMS] Failed to load SMS module:', smsImportErr.message);
+          }
         }
       }
     }
