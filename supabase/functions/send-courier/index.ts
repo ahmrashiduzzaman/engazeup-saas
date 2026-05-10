@@ -257,7 +257,6 @@ serve(async (req) => {
         results.push({ orderId: order.id, success: false, error: updateError.message })
       } else {
         console.log(`[INFO] Order ${order.id} dispatched. Tracking: ${trackingId}`)
-        results.push({ orderId: order.id, success: true, tracking_id: trackingId })
 
         // Trigger 2: Parcel Dispatched Automated SMS
         const shopData = shopsMap.get(order.shop_id)
