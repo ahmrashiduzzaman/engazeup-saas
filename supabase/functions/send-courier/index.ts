@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2"
+import { sendAutoSms } from "../_shared/smsService.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -177,7 +178,6 @@ serve(async (req) => {
           const message = `আপনার পার্সেলটি ${courier} কুরিয়ারে দেওয়া হয়েছে। ট্র্যাকিং: ${trackingLink}। অনুগ্রহ করে ফোন খোলা রাখুন। - ${shopData.shop_name || 'EngazeUp Shop'}`;
           
           try {
-            const { sendAutoSms } = await import("../_shared/smsService.ts");
             await sendAutoSms({
               shopId: order.shop_id,
               phoneNumbers: [order.phone_number],
