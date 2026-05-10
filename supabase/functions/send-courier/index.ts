@@ -36,13 +36,11 @@ async function sendAutoSms({
       .single();
 
     if (shopError || !shop) {
-      console.error('[SMS] Shop not found or error:', shopError?.message);
-      return false;
+      throw new Error(`Shop not found or error: ${shopError?.message}`);
     }
 
     if (shop.sms_credits < requiredCredits) {
-      console.warn(`[SMS] Insufficient balance for shop ${shopId}. Has: ${shop.sms_credits}, Needs: ${requiredCredits}`);
-      return false;
+      throw new Error(`Insufficient balance for shop ${shopId}. Has: ${shop.sms_credits}, Needs: ${requiredCredits}`);
     }
 
     const { error: deductError } = await supabaseClient
@@ -51,17 +49,15 @@ async function sendAutoSms({
       .eq('id', shopId);
 
     if (deductError) {
-      console.error('[SMS] Failed to deduct credits:', deductError.message);
-      return false;
+      throw new Error(`Failed to deduct credits: ${deductError.message}`);
     }
 
     const apiKey = Deno.env.get('MIM_SMS_API_KEY');
     const senderId = Deno.env.get('SMS_SENDER_ID') || '8809612443880'; 
 
     if (!apiKey) {
-      console.error('[SMS] MIM_SMS_API_KEY missing. Rolling back credits.');
       await supabaseClient.from('shops').update({ sms_credits: shop.sms_credits }).eq('id', shopId);
-      return false;
+      throw new Error('MIM_SMS_API_KEY environment variable is missing in Supabase. Rolling back credits.');
     }
 
     const isUnicode = /[^\u0000-\u00ff]/.test(message);
@@ -95,17 +91,15 @@ async function sendAutoSms({
     const isError = resultText.includes('1002') || resultText.includes('1003') || resultText.includes('1004') || resultText.includes('1005') || resultText.includes('1006') || resultText.includes('1011');
     
     if (isError || !response.ok) {
-      console.error(`[SMS] Mim SMS API rejected the request. Rolling back credits. Error: ${resultText}`);
-      // Rollback
       await supabaseClient.from('shops').update({ sms_credits: shop.sms_credits }).eq('id', shopId);
-      return false;
+      throw new Error(`Mim SMS API rejected the request. Credits Rolled Back. Raw Response: ${resultText}`);
     }
 
     return true;
 
   } catch (error: any) {
-    console.error('[SMS] CRITICAL ERROR in SMS service (caught safely):', error.message);
-    return false;
+    console.error('[SMS] CRITICAL ERROR in SMS service:', error.message);
+    throw error; // Re-throw so the caller can catch it and attach it to smsError
   }
 }
 
