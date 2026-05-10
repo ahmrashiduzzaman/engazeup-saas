@@ -53,46 +53,61 @@ async function sendAutoSms({
     }
 
     const apiKey = Deno.env.get('MIM_SMS_API_KEY');
+    const userName = Deno.env.get('MIM_USERNAME');
     const senderId = Deno.env.get('SMS_SENDER_ID') || '8809612443880'; 
 
-    if (!apiKey) {
+    if (!apiKey || !userName) {
       await supabaseClient.from('shops').update({ sms_credits: shop.sms_credits }).eq('id', shopId);
-      throw new Error('MIM_SMS_API_KEY environment variable is missing in Supabase. Rolling back credits.');
+      throw new Error('MIM_SMS_API_KEY or MIM_USERNAME environment variable is missing in Supabase. Rolling back credits.');
     }
 
     const isUnicode = /[^\u0000-\u00ff]/.test(message);
-    const smsType = isUnicode ? 'unicode' : 'text';
+    const smsType = isUnicode ? 'unicode' : 'text'; // Not needed in new API, but keep for reference
     
-    // Ensure numbers are English and clean
-    const cleanNumbers = phoneNumbers.map(p => banglaToEnglishDigits(p).replace(/\D/g, ''));
-    const contactsStr = cleanNumbers.join('+');
+    // Ensure numbers are English and clean, must start with 88
+    const cleanNumbers = phoneNumbers.map(p => {
+      let num = banglaToEnglishDigits(p).replace(/\D/g, '');
+      if (num.length === 11 && num.startsWith('01')) num = '88' + num;
+      return num;
+    });
+    const contactsStr = cleanNumbers.join(',');
 
-    const formData = new URLSearchParams();
-    formData.append('api_key', apiKey);
-    formData.append('type', smsType);
-    formData.append('contacts', contactsStr);
-    formData.append('senderid', senderId);
-    formData.append('msg', message);
+    const payload = {
+      UserName: userName,
+      Apikey: apiKey,
+      MobileNumber: contactsStr,
+      CampaignId: "null",
+      SenderName: senderId,
+      TransactionType: "T",
+      Message: message
+    };
 
-    const response = await fetch('https://esms.mimsms.com/smsapi', {
+    const response = await fetch('https://api.mimsms.com/api/SmsSending/SMS', {
       method: 'POST',
       headers: { 
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      body: formData.toString()
+      body: JSON.stringify(payload)
     });
 
     const resultText = await response.text();
-    console.log(`[SMS] Dispatch successful. Sent to ${contactsStr}. Result: ${resultText}`);
+    console.log(`[SMS] Dispatch completed. Sent to ${contactsStr}. Result: ${resultText}`);
     
-    // Mim SMS returns 1002, 1003, 1004, 1005, 1011 for errors. It returns 1000 for success.
-    const isError = resultText.includes('1002') || resultText.includes('1003') || resultText.includes('1004') || resultText.includes('1005') || resultText.includes('1006') || resultText.includes('1011');
+    let isSuccess = false;
+    try {
+      const resultJson = JSON.parse(resultText);
+      // New API returns statusCode: "200" and status: "Success" on success
+      if (resultJson.statusCode === "200" || resultJson.status?.toLowerCase() === "success") {
+        isSuccess = true;
+      }
+    } catch (e) {
+      // If it's not JSON, it's an error
+    }
     
-    if (isError || !response.ok) {
+    if (!response.ok || !isSuccess) {
       await supabaseClient.from('shops').update({ sms_credits: shop.sms_credits }).eq('id', shopId);
-      throw new Error(`Mim SMS API rejected the request. Credits Rolled Back. Raw Response: ${resultText}`);
+      throw new Error(`Mim SMS API rejected the request. Credits Rolled Back. HTTP ${response.status}. Raw Response: ${resultText}`);
     }
 
     return true;
