@@ -15,6 +15,10 @@
   font-family: 'Inter', sans-serif;
 }
 
+.font-bengali-num {
+  font-family: 'Noto Sans Bengali', sans-serif;
+}
+
 /* ════════════════════════════════════════
    LIGHT MODE DESIGN TOKENS
    ════════════════════════════════════════ */

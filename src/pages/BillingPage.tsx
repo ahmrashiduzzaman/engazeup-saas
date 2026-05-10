@@ -153,13 +153,13 @@ export default function BillingPage() {
                   {isLoading
                     ? <div className="flex items-center gap-2"><Loader2 className="w-5 h-5 text-[#0F6E56] animate-spin" /><span className="text-gray-400">লোড হচ্ছে...</span></div>
                     : <div className="flex items-end gap-3">
-                      <h3 className="text-5xl font-extrabold text-gray-900 leading-none">{shopData?.sms_credits?.toLocaleString('en-IN') ?? '0'}</h3>
+                      <h3 className="text-5xl font-extrabold text-gray-900 leading-none font-bengali-num">{shopData?.sms_credits?.toLocaleString('en-IN') ?? '0'}</h3>
                       <span className="text-xl font-bold text-[#0F6E56] mb-1">ক্রেডিট</span>
                     </div>
                   }
                   <p className="text-sm text-gray-500 mt-2 font-medium flex items-center gap-1.5">
                     <Zap className="w-3.5 h-3.5 text-amber-500" />
-                    প্রতিটি SMS পাঠাতে <span className="font-bold text-gray-800 mx-0.5">১ ক্রেডিট</span> খরচ হয়
+                    প্রতিটি SMS পাঠাতে <span className="font-bold text-gray-800 mx-0.5 font-bengali-num">১ ক্রেডিট</span> খরচ হয়
                   </p>
                 </div>
               </div>
@@ -208,8 +208,8 @@ export default function BillingPage() {
                   </div>
                   <p className="text-gray-500 mb-3 font-medium">{formatExpiry(shopData?.plan_expires_at ?? null)}</p>
                   <div className="flex gap-3 flex-wrap">
-                    <span className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold border border-gray-200">৳{currentPlanDetails.price.toLocaleString()}/মাস</span>
-                    <span className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold border border-gray-200">{currentPlanDetails.orders} অর্ডার</span>
+                    <span className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold border border-gray-200 font-bengali-num">৳{currentPlanDetails.price.toLocaleString()}/মাস</span>
+                    <span className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold border border-gray-200 font-bengali-num">{currentPlanDetails.orders} অর্ডার</span>
                   </div>
                 </div>
                 <div className="flex gap-3 w-full md:w-auto">
@@ -297,12 +297,12 @@ export default function BillingPage() {
                     {isCurrent && <span className={`absolute -top-3 right-4 text-xs font-extrabold px-3 py-1 rounded-full ${colors.bg} ${colors.text} border ${colors.border}`}>বর্তমান</span>}
                     <h3 className="text-lg font-extrabold text-gray-900 mb-1">{plan.name}</h3>
                     <div className="mb-4">
-                      <span className="text-3xl font-extrabold text-gray-900">৳{plan.price.toLocaleString()}</span>
+                      <span className="text-3xl font-extrabold text-gray-900 font-bengali-num">৳{plan.price.toLocaleString()}</span>
                       <span className="text-gray-400 text-sm font-medium">/মাস</span>
                     </div>
                     <ul className="space-y-2 mb-5 flex-1">
                       {plan.features.map((f, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-gray-600 font-medium">
+                        <li key={i} className="flex items-start gap-2 text-sm text-gray-600 font-medium font-bengali-num">
                           <CheckCircle2 className={`w-4 h-4 shrink-0 mt-0.5 ${colors.text}`} /> {f}
                         </li>
                       ))}

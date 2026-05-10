@@ -492,7 +492,7 @@ export default function IntegrationsPage() {
             {/* SMS Toggle 1 */}
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
               <div>
-                <h4 className="font-bold text-gray-800">১. অর্ডার কনফার্মেশন SMS</h4>
+                <h4 className="font-bold text-gray-800 font-bengali-num">১. অর্ডার কনফার্মেশন SMS</h4>
                 <p className="text-xs text-gray-500 mt-1">Facebook বা WooCommerce থেকে অর্ডার আসার সাথে সাথে কনফার্মেশন SMS যাবে।</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -504,7 +504,7 @@ export default function IntegrationsPage() {
             {/* SMS Toggle 2 */}
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
               <div>
-                <h4 className="font-bold text-gray-800">২. পার্সেল ডিসপ্যাচ SMS</h4>
+                <h4 className="font-bold text-gray-800 font-bengali-num">২. পার্সেল ডিসপ্যাচ SMS</h4>
                 <p className="text-xs text-gray-500 mt-1">পার্সেল কুরিয়ারে বুকিং দেওয়ার সাথে সাথে লাইভ ট্র্যাকিং লিংক সহ SMS যাবে।</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
@@ -516,7 +516,7 @@ export default function IntegrationsPage() {
             {/* SMS Toggle 3 */}
             <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200">
               <div>
-                <h4 className="font-bold text-gray-800">৩. ডেলিভারি ফেইল্ড / রিটার্ন SMS</h4>
+                <h4 className="font-bold text-gray-800 font-bengali-num">৩. ডেলিভারি ফেইল্ড / রিটার্ন SMS</h4>
                 <p className="text-xs text-gray-500 mt-1">কুরিয়ার থেকে পার্সেল ডেলিভারি ফেইল্ড বা রিটার্ন হলে কাস্টমারকে অ্যালার্ট SMS যাবে।</p>
               </div>
               <label className="relative inline-flex items-center cursor-pointer">
