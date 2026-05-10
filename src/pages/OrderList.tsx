@@ -111,6 +111,8 @@ export default function OrderList() {
         body: { orderIds: selectedOrders, courierName: selectedCourier }
       });
 
+      console.log('Send Courier Response:', data);
+
       if (error) {
         throw new Error(error.message || 'Edge Function error');
       }

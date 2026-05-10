@@ -165,6 +165,8 @@ serve(async (req) => {
 
         // Trigger 2: Parcel Dispatched Automated SMS
         const shopData = shopsMap.get(order.shop_id)
+        let smsStatus = 'Not configured'
+        let smsError = null
         if (shopData?.auto_sms_dispatched) {
           let trackingLink = trackingId;
           if (courier === 'Steadfast') trackingLink = `https://steadfast.com.bd/t/${trackingId}`;
@@ -176,16 +178,20 @@ serve(async (req) => {
           
           try {
             const { sendAutoSms } = await import("../_shared/smsService.ts");
-            sendAutoSms({
+            await sendAutoSms({
               shopId: order.shop_id,
               phoneNumbers: [order.phone_number],
               message,
               supabaseClient: supabase
-            }).catch(e => console.error('[SMS] Unexpected error sending dispatch SMS:', e));
+            })
+            smsStatus = 'Sent successfully'
           } catch (smsImportErr: any) {
-            console.error('[SMS] Failed to load SMS module:', smsImportErr.message);
+            smsStatus = 'Failed'
+            smsError = smsImportErr.message
+            console.error('[SMS] Error:', smsImportErr.message);
           }
         }
+        results.push({ orderId: order.id, success: true, tracking_id: trackingId, smsStatus, smsError })
       }
     }
 
