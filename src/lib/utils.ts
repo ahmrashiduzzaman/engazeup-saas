@@ -52,6 +52,7 @@ export function statusBadgeTone(statusLabel: string): string {
   if (!statusLabel) return 'bg-gray-100 text-gray-800';
   const s = statusLabel.toLowerCase();
   if (s.includes('deliver') || s.includes('in stock') || s.includes('active')) return 'bg-emerald-100 text-emerald-900 ring-1 ring-emerald-200/90 shadow-sm shadow-emerald-900/5';
+  if (s.includes('confirmed')) return 'bg-teal-100 text-teal-900 ring-1 ring-teal-200/90 shadow-sm shadow-teal-900/5';
   if (s.includes('cancel') || s.includes('return') || s.includes('out of stock')) return 'bg-rose-100 text-rose-900 ring-1 ring-rose-200/90 shadow-sm shadow-rose-900/5';
   if (s.includes('transit') || s.includes('pending') || s.includes('hold')) return 'bg-sky-100 text-sky-900 ring-1 ring-sky-200/90 shadow-sm shadow-sky-900/5';
   if (s.includes('low stock')) return 'bg-amber-100 text-amber-950 ring-1 ring-amber-200/90 shadow-sm shadow-amber-900/5';

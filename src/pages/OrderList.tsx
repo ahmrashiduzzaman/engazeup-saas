@@ -3,7 +3,7 @@ import DashboardLayout from '../components/DashboardLayout';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { statusBadgeTone, courierColors } from '../lib/utils';
-import { Trash2, Truck, Loader2 } from 'lucide-react';
+import { Trash2, Truck, Loader2, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function OrderList() {
@@ -14,6 +14,7 @@ export default function OrderList() {
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [selectedCourier, setSelectedCourier] = useState<string>('Steadfast');
   const [isBulkSending, setIsBulkSending] = useState(false);
+  const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
 
   // Dual Scrollbar refs
   const topScrollRef = React.useRef<HTMLDivElement>(null);
@@ -129,6 +130,35 @@ export default function OrderList() {
       toast.error('সমস্যা হয়েছে: ' + err.message);
     } finally {
       setIsBulkSending(false);
+    }
+  };
+
+  const handleConfirmOrder = async (orderId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConfirmingOrderId(orderId);
+    try {
+      const { data, error } = await supabase.functions.invoke('confirm-order', {
+        body: { orderId }
+      });
+
+      console.log('Confirm Order Response:', data);
+
+      if (error) {
+        throw new Error(error.message || 'Edge Function error');
+      }
+
+      if (data?.success) {
+        toast.success(data.message || 'অর্ডার কনফার্ম হয়েছে!');
+      } else {
+        toast.error(data?.error || 'কনফার্ম করতে সমস্যা হয়েছে!');
+      }
+
+      fetchOrders();
+    } catch (err: any) {
+      console.error('Confirm order error:', err);
+      toast.error('সমস্যা হয়েছে: ' + err.message);
+    } finally {
+      setConfirmingOrderId(null);
     }
   };
 
@@ -285,7 +315,21 @@ export default function OrderList() {
                               <span className="text-xs font-bold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded-md mb-1">Shipped</span>
                               <span className="text-[10px] text-gray-500 font-medium">Trk: {order.tracking_id}</span>
                             </div>
-                        ) : null}
+                        ) : order.status?.toLowerCase() === 'confirmed' ? (
+                          <span className="inline-flex items-center gap-1 text-xs font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-lg">
+                            <CheckCircle2 size={13} /> Confirmed
+                          </span>
+                        ) : (
+                          <button
+                            onClick={(e) => handleConfirmOrder(order.id, e)}
+                            disabled={confirmingOrderId === order.id}
+                            className="inline-flex items-center gap-1 text-xs font-bold text-white bg-teal-600 hover:bg-teal-700 px-3 py-1.5 rounded-lg transition disabled:opacity-60 shadow-sm"
+                            title="অর্ডার কনফার্ম করুন"
+                          >
+                            {confirmingOrderId === order.id ? <Loader2 size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                            Confirm
+                          </button>
+                        )}
                         <button onClick={(e) => handleDelete(order.id, e)} className="p-1.5 bg-red-50 rounded hover:bg-red-500 hover:text-white text-red-500 transition" title="মুছে ফেলুন">
                           <Trash2 size={16} />
                         </button>

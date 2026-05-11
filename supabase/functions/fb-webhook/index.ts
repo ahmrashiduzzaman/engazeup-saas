@@ -197,7 +197,8 @@ Reply ONLY with a valid JSON object. Do not include any markdown, backticks, or 
                 address: cleanJson.delivery_address || 'Unknown',
                 source: 'Facebook AI',
                 status: 'Pending',
-                cod_amount: safeCodAmount
+                cod_amount: safeCodAmount,
+                fb_sender_psid: senderPsid
               }).select('id').single();
               
               if (orderError) throw orderError;
