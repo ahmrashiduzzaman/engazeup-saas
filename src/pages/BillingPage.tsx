@@ -392,13 +392,12 @@ export default function BillingPage() {
 
                     {/* ── Button Logic ── */}
                     {isTrialActivate ? (
-                      // 🟢 Trial user → Green "Activate" button (ENABLED)
+                      // Trial user → Brand pine green button, same style as Growth/Pro
                       <button
                         onClick={() => openPlanUpgrade(plan)}
-                        className="w-full py-2.5 rounded-xl font-bold text-sm transition bg-green-500 hover:bg-green-600 text-white shadow-md shadow-green-200 flex items-center justify-center gap-2"
+                        className="w-full py-2.5 rounded-xl font-bold text-sm bg-[#0F6E56] text-white hover:bg-[#1D9E75] shadow-sm transition"
                       >
-                        <Zap className="w-4 h-4" />
-                        এখনই অ্যাক্টিভেট করুন (৳{plan.price.toLocaleString()}) →
+                        এই প্ল্যান বেছে নিন →
                       </button>
                     ) : isPaidCurrent ? (
                       // ⚪ Paid user on this plan → Disabled
