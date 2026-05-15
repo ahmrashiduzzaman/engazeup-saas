@@ -15,7 +15,13 @@ import withReactContent from 'sweetalert2-react-content';
 const MySwal = withReactContent(Swal);
 
 type Plan = 'starter' | 'growth' | 'pro';
-interface ShopData { sms_credits: number; plan: Plan; plan_expires_at: string | null; }
+type SubscriptionType = 'trial' | 'paid';
+interface ShopData {
+  sms_credits: number;
+  plan: Plan;
+  plan_expires_at: string | null;
+  subscription_type: SubscriptionType;
+}
 
 const PLANS = [
   {
@@ -73,15 +79,27 @@ export default function BillingPage() {
   const [checkoutAmount, setCheckoutAmount] = useState(0);
   const [checkoutDescription, setCheckoutDescription] = useState('');
 
+  // ── Trial Detection Helper ──────────────────────────────────────────────────
+  // Trial = plan is 'starter' + subscription_type is 'trial' + expiry is in the future
+  const isTrialUser = (data: ShopData | null): boolean => {
+    if (!data) return false;
+    if (data.plan !== 'starter') return false;
+    if (data.subscription_type !== 'trial') return false;
+    if (!data.plan_expires_at) return false;
+    return new Date(data.plan_expires_at) > new Date();
+  };
+
   const fetchShopData = async () => {
     if (!user) return;
     setIsLoading(true);
     const [shopRes, payRes] = await Promise.all([
-      supabase.from('shops').select('sms_credits, plan, plan_expires_at').eq('id', user.id).single(),
+      supabase.from('shops').select('sms_credits, plan, plan_expires_at, subscription_type').eq('id', user.id).single(),
       supabase.from('manual_payments').select('*').eq('shop_id', user.id).order('created_at', { ascending: false })
     ]);
-    
-    setShopData(shopRes.data ?? { sms_credits: 0, plan: 'starter', plan_expires_at: null });
+
+    setShopData(
+      shopRes.data ?? { sms_credits: 0, plan: 'starter', plan_expires_at: null, subscription_type: 'trial' }
+    );
     setPayments(payRes.data || []);
     setIsLoading(false);
   };
@@ -99,9 +117,14 @@ export default function BillingPage() {
   };
 
   const openPlanUpgrade = (plan: typeof PLANS[0]) => {
+    const onTrial = isTrialUser(shopData);
+    // Trial user-এর জন্য স্পষ্ট description — trial শেষে শুরু হবে বোঝাতে
+    const desc = onTrial && plan.id === 'starter'
+      ? `Starter Plan — পেইড অ্যাক্টিভেশন (ট্রায়াল শেষে শুরু হবে)`
+      : `${plan.name} Plan — ১ মাস সাবস্ক্রিপশন`;
     setCheckoutPurpose('plan_upgrade');
     setCheckoutAmount(plan.price);
-    setCheckoutDescription(`${plan.name} Plan — ১ মাস সাবস্ক্রিপশন`);
+    setCheckoutDescription(desc);
     setShowUpgradeModal(false);
     setCheckoutOpen(true);
   };
@@ -134,7 +157,10 @@ export default function BillingPage() {
   };
 
   const formatExpiry = (s: string | null) =>
-    s ? new Date(s).toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }) : 'ট্রায়াল চলছে';
+    s ? new Date(s).toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' }) : 'মেয়াদ নেই';
+
+  const trialEndLabel = (s: string | null) =>
+    s ? `ট্রায়াল শেষ হবে: ${new Date(s).toLocaleDateString('bn-BD', { day: 'numeric', month: 'long', year: 'numeric' })}` : 'ট্রায়াল চলছে';
 
   return (
     <DashboardLayout title="বিলিং ও সাবস্ক্রিপশন" subtitle="আপনার প্ল্যান এবং SMS ওয়ালেট পরিচালনা করুন">
@@ -202,26 +228,54 @@ export default function BillingPage() {
                     <span className={`px-3 py-1 rounded-lg text-sm font-extrabold border ${PLAN_COLORS[currentPlanDetails.color].bg} ${PLAN_COLORS[currentPlanDetails.color].text} ${PLAN_COLORS[currentPlanDetails.color].border}`}>
                       {currentPlanDetails.name}
                     </span>
-                    <span className="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-sm font-bold border border-green-200 flex items-center gap-1">
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Active
-                    </span>
+                    {/* Trial vs Paid badge */}
+                    {isTrialUser(shopData) ? (
+                      <span className="bg-amber-100 text-amber-700 px-3 py-1 rounded-lg text-sm font-bold border border-amber-200 flex items-center gap-1 animate-pulse">
+                        ⏳ Trial চলছে
+                      </span>
+                    ) : (
+                      <span className="bg-green-100 text-green-700 px-3 py-1 rounded-lg text-sm font-bold border border-green-200 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Active
+                      </span>
+                    )}
                   </div>
-                  <p className="text-gray-500 mb-3 font-medium">{formatExpiry(shopData?.plan_expires_at ?? null)}</p>
+                  {/* Show trial end date or regular expiry */}
+                  <p className="text-gray-500 mb-3 font-medium">
+                    {isTrialUser(shopData)
+                      ? trialEndLabel(shopData?.plan_expires_at ?? null)
+                      : formatExpiry(shopData?.plan_expires_at ?? null)}
+                  </p>
                   <div className="flex gap-3 flex-wrap">
                     <span className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold border border-gray-200 font-bengali-num">৳{currentPlanDetails.price.toLocaleString()}/মাস</span>
                     <span className="bg-gray-100 text-gray-700 px-3 py-1.5 rounded-lg text-sm font-bold border border-gray-200 font-bengali-num">{currentPlanDetails.orders} অর্ডার</span>
                   </div>
+                  {/* Trial CTA hint */}
+                  {isTrialUser(shopData) && (
+                    <p className="mt-3 text-sm text-amber-700 font-medium bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-center gap-2">
+                      💡 ট্রায়াল চলাকালীন পেমেন্ট করুন — ট্রায়াল শেষে সাবস্ক্রিপশন শুরু হবে, কোনো দিন নষ্ট হবে না।
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-3 w-full md:w-auto">
                   {currentPlanDetails.id !== 'starter' && (
                     <button onClick={handleCancelPlan} className="flex-1 md:flex-none border border-red-300 text-red-500 px-5 py-2.5 rounded-lg font-medium hover:bg-red-50 transition">ক্যান্সেল</button>
                   )}
-                  <button
-                    onClick={() => setShowUpgradeModal(true)}
-                    className="flex-1 md:flex-none bg-[#0F6E56] text-white px-5 py-2.5 rounded-lg font-bold hover:bg-[#1D9E75] transition shadow-sm flex items-center gap-2"
-                  >
-                    <ArrowUpRight className="w-4 h-4" /> আপগ্রেড করুন
-                  </button>
+                  {/* Trial user: show direct activate button */}
+                  {isTrialUser(shopData) ? (
+                    <button
+                      onClick={() => { setShowUpgradeModal(true); }}
+                      className="flex-1 md:flex-none bg-green-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-green-600 transition shadow-sm shadow-green-200 flex items-center gap-2"
+                    >
+                      <Zap className="w-4 h-4" /> এখনই অ্যাক্টিভেট করুন
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setShowUpgradeModal(true)}
+                      className="flex-1 md:flex-none bg-[#0F6E56] text-white px-5 py-2.5 rounded-lg font-bold hover:bg-[#1D9E75] transition shadow-sm flex items-center gap-2"
+                    >
+                      <ArrowUpRight className="w-4 h-4" /> আপগ্রেড করুন
+                    </button>
+                  )}
                 </div>
               </div>
             )
@@ -291,10 +345,36 @@ export default function BillingPage() {
               {PLANS.map(plan => {
                 const colors = PLAN_COLORS[plan.color];
                 const isCurrent = plan.id === shopData?.plan;
+                // Trial user + Starter card → special "Activate" state
+                const isTrialActivate = isTrialUser(shopData) && plan.id === 'starter';
+                // Paid starter user → disable (already subscribed)
+                const isPaidCurrent = isCurrent && !isTrialUser(shopData);
+
                 return (
-                  <div key={plan.id} className={`relative rounded-2xl border-2 p-5 flex flex-col transition-all ${isCurrent ? `${colors.border} ${colors.bg}` : 'border-gray-200 hover:border-gray-300 hover:shadow-md'}`}>
+                  <div
+                    key={plan.id}
+                    className={`relative rounded-2xl border-2 p-5 flex flex-col transition-all ${
+                      isTrialActivate
+                        ? 'border-green-400 bg-green-50 shadow-md shadow-green-100'
+                        : isPaidCurrent
+                          ? `${colors.border} ${colors.bg}`
+                          : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
+                    }`}
+                  >
                     {plan.badge && <span className="absolute -top-3 left-1/2 -translate-x-1/2 bg-amber-400 text-amber-900 text-xs font-extrabold px-3 py-1 rounded-full shadow-sm whitespace-nowrap">{plan.badge}</span>}
-                    {isCurrent && <span className={`absolute -top-3 right-4 text-xs font-extrabold px-3 py-1 rounded-full ${colors.bg} ${colors.text} border ${colors.border}`}>বর্তমান</span>}
+
+                    {/* Badge: Trial চলছে (for trial starter) or বর্তমান (for paid) */}
+                    {isTrialActivate && (
+                      <span className="absolute -top-3 right-4 text-xs font-extrabold px-3 py-1 rounded-full bg-amber-100 text-amber-700 border border-amber-300">
+                        ⏳ Trial
+                      </span>
+                    )}
+                    {isPaidCurrent && (
+                      <span className={`absolute -top-3 right-4 text-xs font-extrabold px-3 py-1 rounded-full ${colors.bg} ${colors.text} border ${colors.border}`}>
+                        বর্তমান
+                      </span>
+                    )}
+
                     <h3 className="text-lg font-extrabold text-gray-900 mb-1">{plan.name}</h3>
                     <div className="mb-4">
                       <span className="text-3xl font-extrabold text-gray-900 font-bengali-num">৳{plan.price.toLocaleString()}</span>
@@ -303,20 +383,40 @@ export default function BillingPage() {
                     <ul className="space-y-2 mb-5 flex-1">
                       {plan.features.map((f, i) => (
                         <li key={i} className="flex items-start gap-2 text-sm text-gray-600 font-medium font-bengali-num">
-                          <CheckCircle2 className={`w-4 h-4 shrink-0 mt-0.5 ${colors.text}`} /> {f}
+                          <CheckCircle2 className={`w-4 h-4 shrink-0 mt-0.5 ${
+                            isTrialActivate ? 'text-green-600' : colors.text
+                          }`} /> {f}
                         </li>
                       ))}
                     </ul>
-                    <button
-                      disabled={isCurrent}
-                      onClick={() => openPlanUpgrade(plan)}
-                      className={`w-full py-2.5 rounded-xl font-bold text-sm transition ${isCurrent
-                        ? `${colors.bg} ${colors.text} border ${colors.border} opacity-70 cursor-not-allowed`
-                        : 'bg-[#0F6E56] text-white hover:bg-[#1D9E75] shadow-sm'
-                        }`}
-                    >
-                      {isCurrent ? '✓ বর্তমান প্ল্যান' : 'এই প্ল্যান বেছে নিন →'}
-                    </button>
+
+                    {/* ── Button Logic ── */}
+                    {isTrialActivate ? (
+                      // 🟢 Trial user → Green "Activate" button (ENABLED)
+                      <button
+                        onClick={() => openPlanUpgrade(plan)}
+                        className="w-full py-2.5 rounded-xl font-bold text-sm transition bg-green-500 hover:bg-green-600 text-white shadow-md shadow-green-200 flex items-center justify-center gap-2"
+                      >
+                        <Zap className="w-4 h-4" />
+                        এখনই অ্যাক্টিভেট করুন (৳{plan.price.toLocaleString()}) →
+                      </button>
+                    ) : isPaidCurrent ? (
+                      // ⚪ Paid user on this plan → Disabled
+                      <button
+                        disabled
+                        className={`w-full py-2.5 rounded-xl font-bold text-sm ${colors.bg} ${colors.text} border ${colors.border} opacity-70 cursor-not-allowed`}
+                      >
+                        ✓ বর্তমান প্ল্যান
+                      </button>
+                    ) : (
+                      // 🟩 Other plans → Upgrade button
+                      <button
+                        onClick={() => openPlanUpgrade(plan)}
+                        className="w-full py-2.5 rounded-xl font-bold text-sm bg-[#0F6E56] text-white hover:bg-[#1D9E75] shadow-sm transition"
+                      >
+                        এই প্ল্যান বেছে নিন →
+                      </button>
+                    )}
                   </div>
                 );
               })}
