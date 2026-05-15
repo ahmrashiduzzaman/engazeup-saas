@@ -240,7 +240,7 @@ export default function BillingPage() {
                     )}
                   </div>
                   {/* Show trial end date or regular expiry */}
-                  <p className="text-gray-500 mb-3 font-medium">
+                  <p className="text-gray-500 mb-3 font-medium font-bengali-num">
                     {isTrialUser(shopData)
                       ? trialEndLabel(shopData?.plan_expires_at ?? null)
                       : formatExpiry(shopData?.plan_expires_at ?? null)}
@@ -264,7 +264,7 @@ export default function BillingPage() {
                   {isTrialUser(shopData) ? (
                     <button
                       onClick={() => { setShowUpgradeModal(true); }}
-                      className="flex-1 md:flex-none bg-green-500 text-white px-5 py-2.5 rounded-lg font-bold hover:bg-green-600 transition shadow-sm shadow-green-200 flex items-center gap-2"
+                      className="flex-1 md:flex-none bg-[#0F6E56] text-white px-5 py-2.5 rounded-lg font-bold hover:bg-[#1D9E75] transition shadow-sm flex items-center gap-2"
                     >
                       <Zap className="w-4 h-4" /> এখনই অ্যাক্টিভেট করুন
                     </button>
