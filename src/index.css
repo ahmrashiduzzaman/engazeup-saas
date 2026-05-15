@@ -6,7 +6,7 @@
 
 @layer base {
   html, body {
-    font-family: 'Hind Siliguri', sans-serif;
+    font-family: 'Inter', 'Noto Sans Bengali', 'Hind Siliguri', sans-serif;
     background-color: #F8F9FA;
     color: #1F2937;
   }
@@ -34,8 +34,8 @@
   --accent-border: rgba(170, 59, 255, 0.5);
   --social-bg: rgba(244, 243, 236, 0.5);
   --shadow: rgba(0,0,0,0.1) 0 10px 15px -3px, rgba(0,0,0,0.05) 0 4px 6px -2px;
-  --sans: 'Hind Siliguri', system-ui, 'Segoe UI', Roboto, sans-serif;
-  --heading: 'Hind Siliguri', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --sans: 'Inter', 'Noto Sans Bengali', 'Hind Siliguri', system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: 'Inter', 'Noto Sans Bengali', 'Hind Siliguri', system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
   /* ── Dashboard surfaces ── */
